@@ -1,0 +1,40 @@
+/* AUTO-GENERATED — edit packages/theme/colors.json, then run: bun scripts/sync-theme.ts */
+@theme {
+  --color-bg: #0f0f0f;
+  --color-bg-raised: #1a1a1a;
+  --color-bg-card: #222222;
+  --color-bg-input: #2a2a2a;
+  --color-bg-hover: #333333;
+  --color-border: #333333;
+  --color-border-focus: #555555;
+  --color-text: #f0ebe3;
+  --color-text-muted: #9a9389;
+  --color-text-faint: #6b655c;
+  --color-accent-green: #22c55e;
+  --color-accent-amber: #f59e0b;
+  --color-accent-purple: #a78bfa;
+  --color-accent-blue: #60a5fa;
+  --color-accent-rose: #fb7185;
+  --color-primary: #e8d5b5;
+  --color-primary-hover: #f0e4ce;
+}
+
+:root.light {
+  --color-bg: #faf8f5;
+  --color-bg-raised: #f0ede8;
+  --color-bg-card: #ffffff;
+  --color-bg-input: #eae7e1;
+  --color-bg-hover: #e2ded7;
+  --color-border: #d6d1c9;
+  --color-border-focus: #aca69c;
+  --color-text: #1c1917;
+  --color-text-muted: #57534e;
+  --color-text-faint: #78716c;
+  --color-accent-green: #16a34a;
+  --color-accent-amber: #d97706;
+  --color-accent-purple: #7c3aed;
+  --color-accent-blue: #2563eb;
+  --color-accent-rose: #e11d48;
+  --color-primary: #7c6540;
+  --color-primary-hover: #6b5636;
+}

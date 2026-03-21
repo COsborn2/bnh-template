@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+.turbo
+bun.lockb
+*.env
+*.env.local
+.DS_Store
+.claude/
+tsconfig.tsbuildinfo
+.worktrees/
+.superpowers/
+.idea/
+docs/
