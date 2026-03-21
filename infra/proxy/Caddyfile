@@ -1,0 +1,59 @@
+{
+	auto_https off
+}
+
+:{$PORT} {
+	log {
+		output stdout
+		level INFO
+	}
+
+	# Block common bot/scanner paths — respond without waking upstream
+	@blocked path /wp-admin/* /wp-login* /wp-content/* /wp-includes/* /wp-config.php /wp-cron.php /xmlrpc.php \
+ /.env* /.git/* /.htaccess /.htpasswd /.DS_Store /config.php /configuration.php /server-status /server-info \
+ /phpMyAdmin* /phpmyadmin* /adminer* /administrator* /manager/* \
+ /cgi-bin/* /vendor/* /node_modules/* /solr/* /actuator/* /debug/* /console/* /telescope/* /api/v1/pods /remote/* /boaform/* \
+ /backup* /db.sql /dump.sql
+	handle @blocked {
+		respond 404
+	}
+
+	# Serve robots.txt directly — don't wake upstream
+	handle /robots.txt {
+		header Content-Type text/plain
+		respond "User-agent: *
+Disallow: /api/
+Allow: /
+"
+	}
+
+	handle /api/* {
+		reverse_proxy {$API_URL}
+	}
+
+	handle {
+		reverse_proxy {$WEB_URL}
+	}
+
+	handle_errors 502 503 504 {
+		@api path /api/*
+		handle @api {
+			header Content-Type application/json
+			header X-Loading-Page true
+			respond `{"error":"Service is starting up","retryAfter":3}` 503
+		}
+
+		@favicon path /favicon.ico
+		handle @favicon {
+			root * /srv
+			file_server
+		}
+
+		handle {
+			header X-Loading-Page true
+			root * /srv
+			rewrite * /loading.html
+			file_server
+		}
+	}
+}

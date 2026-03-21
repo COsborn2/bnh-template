@@ -1,0 +1,32 @@
+{
+  "name": "@app/email",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "email dev --dir src/templates --port 4000",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "resend": "^6.9.4",
+    "@react-email/components": "^1.0.10",
+    "@react-email/render": "^2.0.4"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@react-email/preview-server": "5.2.10",
+    "@types/bun": "^1.3.10",
+    "@types/react": "^19.2.14",
+    "react": "^19.2.4",
+    "react-email": "^5.2.10",
+    "typescript": "^5.9.3"
+  }
+}

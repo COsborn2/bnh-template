@@ -1,0 +1,17 @@
+{
+  "name": "@app/cron",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cleanup": "bun src/cleanup.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.8.0"
+  }
+}
