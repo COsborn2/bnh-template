@@ -19,6 +19,13 @@ import { user as userTable } from "@app/db/schema";
 const isTest = process.env.NODE_ENV === "test";
 const isDev = process.env.NODE_ENV !== "production";
 
+/** Ensure the verification URL always redirects to /dashboard after verification. */
+export function buildVerificationUrl(url: string): string {
+  const verifyUrl = new URL(url);
+  verifyUrl.searchParams.set("callbackURL", "/dashboard");
+  return verifyUrl.toString();
+}
+
 export const auth = betterAuth({
   appName: process.env.APP_NAME || "MyApp",
   baseURL: process.env.BETTER_AUTH_URL,
@@ -54,9 +61,7 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      // Append callbackURL so better-auth redirects to the frontend after verification
-      const verifyUrl = `${url}${url.includes("?") ? "&" : "?"}callbackURL=/dashboard`;
-      void sendVerificationEmail(user.email, verifyUrl);
+      void sendVerificationEmail(user.email, buildVerificationUrl(url));
     },
   },
 
