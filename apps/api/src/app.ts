@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { auth } from "./lib/auth.js";
+import { wsRoutes } from "./routes/ws.js";
 
 const app = new Hono().basePath("/api");
 
@@ -20,6 +21,9 @@ app.use("*", logger());
 
 // Health check
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+// WebSocket integration routes
+app.route("/ws", wsRoutes);
 
 // better-auth handles all /auth/* routes
 app.on(["POST", "GET"], "/auth/**", (c) => {

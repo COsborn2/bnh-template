@@ -50,6 +50,9 @@ export default function DashboardPage() {
           <Link href="/settings">
             <Button variant="secondary" size="sm">Settings</Button>
           </Link>
+          <Link href="/chat">
+            <Button variant="secondary" size="sm">Chat Example</Button>
+          </Link>
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             Sign out
           </Button>
