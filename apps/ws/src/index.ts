@@ -74,7 +74,7 @@ function send(ws: ServerWebSocket<WsData>, msg: ServerMessage): void {
 async function authorizeSubscription(
   topic: string,
   userId: string
-): Promise<boolean> {
+): Promise<boolean | null> {
   try {
     const res = await fetch(authorizeUrl!, {
       method: "POST",
@@ -84,9 +84,11 @@ async function authorizeSubscription(
       },
       body: JSON.stringify({ topic, userId }),
     });
-    return res.ok;
+    if (res.status === 403) return false;
+    if (!res.ok) return null;
+    return true;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -94,9 +96,9 @@ async function forwardEvent(
   topic: string,
   data: unknown,
   userId: string
-): Promise<void> {
+): Promise<boolean> {
   try {
-    await fetch(eventsUrl!, {
+    const res = await fetch(eventsUrl!, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -104,8 +106,10 @@ async function forwardEvent(
       },
       body: JSON.stringify({ topic, data, userId }),
     });
+    return res.ok;
   } catch (err) {
     console.error("[ws] failed to forward event:", (err as Error).message);
+    return false;
   }
 }
 
@@ -206,6 +210,14 @@ const server = Bun.serve<WsData>({
             msg.topic,
             ws.data.userId
           );
+          if (allowed === null) {
+            send(ws, {
+              type: "error",
+              code: "service_unavailable",
+              message: "Authorization service is unavailable",
+            });
+            return;
+          }
           if (!allowed) {
             send(ws, {
               type: "error",
@@ -214,7 +226,15 @@ const server = Bun.serve<WsData>({
             });
             return;
           }
-          subscribe(ws, msg.topic);
+          const subscribed = subscribe(ws, msg.topic);
+          if (!subscribed) {
+            send(ws, {
+              type: "error",
+              code: "subscription_limit",
+              message: "Too many active subscriptions",
+            });
+            return;
+          }
           send(ws, { type: "subscribed", topic: msg.topic });
           break;
         }
@@ -226,7 +246,14 @@ const server = Bun.serve<WsData>({
         }
 
         case "message": {
-          await forwardEvent(msg.topic, msg.data, ws.data.userId);
+          const ok = await forwardEvent(msg.topic, msg.data, ws.data.userId);
+          if (!ok) {
+            send(ws, {
+              type: "error",
+              code: "forward_failed",
+              message: "Message could not be delivered",
+            });
+          }
           break;
         }
       }

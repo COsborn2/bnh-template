@@ -36,7 +36,7 @@ Allow: /
 		reverse_proxy {$API_URL}
 	}
 
-	handle /ws {
+	handle /ws* {
 		reverse_proxy {$WS_URL} {
 			header_up X-Real-Client-IP {http.request.header.X-Real-IP}
 		}
@@ -54,7 +54,7 @@ Allow: /
 			respond `{"error":"Service is starting up","retryAfter":3}` 503
 		}
 
-		@ws path /ws
+		@ws path /ws*
 		handle @ws {
 			header Content-Type application/json
 			respond `{"error":"WebSocket service is starting up","retryAfter":3}` 503

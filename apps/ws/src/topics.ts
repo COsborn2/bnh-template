@@ -23,7 +23,14 @@ export function initTopics(cb: TopicCallbacks): void {
   callbacks = cb;
 }
 
-export function subscribe(client: WsClient, topic: string): void {
+const MAX_SUBSCRIPTIONS_PER_CLIENT = 50;
+
+export function subscribe(client: WsClient, topic: string): boolean {
+  const existing = clientTopics.get(client);
+  if (existing && existing.size >= MAX_SUBSCRIPTIONS_PER_CLIENT && !existing.has(topic)) {
+    return false;
+  }
+
   let clients = topicClients.get(topic);
   if (!clients) {
     clients = new Set();
@@ -32,12 +39,13 @@ export function subscribe(client: WsClient, topic: string): void {
   }
   clients.add(client);
 
-  let topics = clientTopics.get(client);
+  let topics = existing;
   if (!topics) {
     topics = new Set();
     clientTopics.set(client, topics);
   }
   topics.add(topic);
+  return true;
 }
 
 export function unsubscribe(client: WsClient, topic: string): void {
