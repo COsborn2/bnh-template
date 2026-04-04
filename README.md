@@ -87,7 +87,7 @@ bun-template/
 
 ## Getting Started
 
-**Prerequisites:** [Bun](https://bun.sh) (1.3+), [Docker](https://docs.docker.com/get-docker/) (for PostgreSQL)
+**Prerequisites:** [Bun](https://bun.sh) (1.3+), [Docker](https://docs.docker.com/get-docker/) (for PostgreSQL and Redis)
 
 ```bash
 # Create a new project (sets up .env files automatically)
@@ -97,7 +97,7 @@ cd my-app
 # Configure environment
 # Edit .env and apps/web/.env.local with your secrets
 
-# Start PostgreSQL
+# Start PostgreSQL and Redis
 docker compose up -d
 
 # Run migrations
@@ -107,23 +107,26 @@ bun run db:migrate
 bun run dev
 # API:            http://localhost:3001
 # Web:            http://localhost:3000
+# WebSocket:      ws://localhost:3002
 # Email preview:  http://localhost:4000
 # API docs:       http://localhost:3000/api/auth/reference
 ```
 
-### PostgreSQL via Docker
+### Docker Services (PostgreSQL & Redis)
 
-The included `docker-compose.yml` runs PostgreSQL 17 on the default port (5432). Data is persisted in a Docker volume.
+The included `docker-compose.yml` runs PostgreSQL 17 and Redis 7. PostgreSQL data is persisted in a Docker volume.
 
 ```bash
-docker compose up -d       # Start PostgreSQL
-docker compose down        # Stop PostgreSQL (data persisted)
+docker compose up -d       # Start PostgreSQL and Redis
+docker compose down        # Stop services (data persisted)
 docker compose down -v     # Stop and delete all data
 ```
 
 The default `.env.example` connection string (`postgresql://postgres:postgres@localhost:5433/myapp`) matches the Docker Compose config out of the box. Port 5433 is used to avoid conflicts with any local PostgreSQL installation on the default port (5432).
 
-> **Already have PostgreSQL locally?** Skip Docker — just create a database (`createdb myapp`) and make sure `DATABASE_URL` in `.env` points to it.
+Redis runs on the default port (6379) and is required for the WebSocket server. If Redis isn't running, the WS server will log `[redis] connection failed — is Redis running?` and retry automatically.
+
+> **Already have PostgreSQL locally?** Skip Docker for Postgres — just create a database (`createdb myapp`) and make sure `DATABASE_URL` in `.env` points to it. You still need Redis running for WebSocket support.
 
 ### Dev Mode Notes
 
@@ -158,6 +161,16 @@ The default `.env.example` connection string (`postgresql://postgres:postgres@lo
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Prod | Cloudflare Turnstile site key |
 | `NEXT_PUBLIC_APP_NAME` | No | App name in UI (default: `MyApp`) |
 | `NEXT_PUBLIC_API_URL` | Prod | API base URL (uses Next.js proxy in dev) |
+
+**Root `.env`** (WebSocket server + shared):
+
+| Variable | Required | Description |
+|---|---|---|
+| `REDIS_URL` | Yes | Redis connection string |
+| `WS_AUTH_URL` | Yes | URL for session validation (points to API auth endpoint) |
+| `WS_AUTHORIZE_URL` | Yes | URL for topic authorization (points to API) |
+| `WS_EVENTS_URL` | Yes | URL for event forwarding (points to API) |
+| `WS_API_SECRET` | Yes | Shared secret for WS-to-API authentication |
 
 ## Scripts
 

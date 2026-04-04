@@ -27,8 +27,19 @@ Allow: /
 "
 	}
 
+	# Block internal WS service-to-service routes from external access
+	handle /api/ws/* {
+		respond 403
+	}
+
 	handle /api/* {
 		reverse_proxy {$API_URL}
+	}
+
+	handle /ws* {
+		reverse_proxy {$WS_URL} {
+			header_up X-Real-Client-IP {http.request.header.X-Real-IP}
+		}
 	}
 
 	handle {
@@ -41,6 +52,12 @@ Allow: /
 			header Content-Type application/json
 			header X-Loading-Page true
 			respond `{"error":"Service is starting up","retryAfter":3}` 503
+		}
+
+		@ws path /ws*
+		handle @ws {
+			header Content-Type application/json
+			respond `{"error":"WebSocket service is starting up","retryAfter":3}` 503
 		}
 
 		@favicon path /favicon.ico

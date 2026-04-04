@@ -1,12 +1,10 @@
-import tseslint from "typescript-eslint";
 import coreWebVitals from "eslint-config-next/core-web-vitals";
 
-export default tseslint.config(
+export default [
   {
     ignores: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
   },
-  ...tseslint.configs.recommended,
-  // Next.js rules scoped to the web app
+  // Next.js rules scoped to the web app (includes @typescript-eslint)
   ...coreWebVitals.map((config) => ({
     ...config,
     files: ["apps/web/**/*.{ts,tsx,js,jsx}"],
@@ -16,5 +14,5 @@ export default tseslint.config(
     settings: {
       next: { rootDir: "apps/web" },
     },
-  }
-);
+  },
+];
