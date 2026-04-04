@@ -30,7 +30,7 @@
     "eslint": "^10.0.3",
     "eslint-config-next": "^16.1.7",
     "tailwindcss": "^4.2.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   },
   "browserslist": [
     "Chrome >= 90",
