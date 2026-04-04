@@ -50,9 +50,7 @@ export function useWebSocket({
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL
-      ? `${process.env.NEXT_PUBLIC_WS_URL}/ws`
-      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
