@@ -2,6 +2,30 @@
 
 A production-ready full-stack starter template built with Bun, Hono, and Next.js. Ships with complete authentication (better-auth), email verification, admin tools, and a clean monorepo structure so you can skip the boilerplate and start building features.
 
+## Quick Start
+
+### Create a new project
+
+```bash
+bunx create-bnh my-app
+```
+
+This scaffolds a new project from the template, replacing all placeholder names with your project name, installing dependencies, and initializing a git repo.
+
+### Local development of the template itself
+
+If you're working on the template and want to test `bun create` locally:
+
+```bash
+# In the template repo
+bun link
+
+# From anywhere
+bun create bnh my-app
+```
+
+`bun link` registers the local `create-bnh` package globally so `bun create bnh` resolves to your local copy instead of a registry. Changes to the template are picked up immediately — no need to re-link after edits.
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -66,14 +90,12 @@ bun-template/
 **Prerequisites:** [Bun](https://bun.sh) (1.3+), [Docker](https://docs.docker.com/get-docker/) (for PostgreSQL)
 
 ```bash
-# Clone and install
-git clone <your-repo-url> my-app
+# Create a new project (sets up .env files automatically)
+bunx create-bnh my-app
 cd my-app
-bun install
 
 # Configure environment
-cp .env.example .env
-cp apps/web/.env.local.example apps/web/.env.local
+# Edit .env and apps/web/.env.local with your secrets
 
 # Start PostgreSQL
 docker compose up -d
