@@ -13,6 +13,7 @@
   "dependencies": {
     "@app/db": "workspace:*",
     "@app/email": "workspace:*",
+    "@app/shared": "workspace:*",
     "better-auth": "latest",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.10",

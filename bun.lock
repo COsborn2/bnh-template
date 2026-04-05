@@ -23,6 +23,7 @@
       "dependencies": {
         "@app/db": "workspace:*",
         "@app/email": "workspace:*",
+        "@app/shared": "workspace:*",
         "better-auth": "latest",
         "drizzle-orm": "^0.45.2",
         "hono": "^4.12.10",
@@ -66,6 +67,7 @@
       "name": "@app/web",
       "version": "0.0.1",
       "dependencies": {
+        "@app/shared": "workspace:*",
         "@fortawesome/fontawesome-svg-core": "^7.2.0",
         "@fortawesome/free-solid-svg-icons": "^7.2.0",
         "@fortawesome/react-fontawesome": "^3.3.0",
@@ -93,6 +95,7 @@
       "name": "@app/ws",
       "version": "0.0.1",
       "dependencies": {
+        "@app/shared": "workspace:*",
         "ioredis": "^5.10.1",
       },
       "devDependencies": {

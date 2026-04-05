@@ -1,3 +1,12 @@
-// @app/shared — shared utilities
-// Add shared types and utilities here as your app grows.
-export {};
+export {
+  type SubscribeMessage,
+  type UnsubscribeMessage,
+  type ClientDataMessage,
+  type ClientMessage,
+  type SubscribedMessage,
+  type UnsubscribedMessage,
+  type EventMessage,
+  type ErrorMessage,
+  type ServerMessage,
+  parseClientMessage,
+} from "./protocol.js";
