@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import type { ServerMessage } from "@app/shared";
 
 interface UseWebSocketOptions {
   /** Topics to subscribe to on connect */
@@ -12,12 +13,6 @@ interface UseWebSocketOptions {
   /** Called when connection state changes */
   onConnectionChange?: (connected: boolean) => void;
 }
-
-type ServerMessage =
-  | { type: "subscribed"; topic: string }
-  | { type: "unsubscribed"; topic: string }
-  | { type: "event"; topic: string; data: unknown }
-  | { type: "error"; code: string; message: string };
 
 const MAX_RECONNECT_DELAY = 30_000;
 const BASE_RECONNECT_DELAY = 1_000;
@@ -50,9 +45,7 @@ export function useWebSocket({
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL
-      ? `${process.env.NEXT_PUBLIC_WS_URL}/ws`
-      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
