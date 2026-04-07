@@ -15,7 +15,7 @@
     "@app/email": "workspace:*",
     "better-auth": "latest",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.11",
+    "hono": "^4.12.12",
     "postgres": "^3.4.9",
     "zod": "^4.3.6",
     "ioredis": "^5.10.1"
