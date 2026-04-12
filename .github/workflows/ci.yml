@@ -13,6 +13,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  REPOSITORY_URL: https://github.com/${{ github.repository }}
 
 jobs:
   changes:
@@ -228,6 +229,11 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=long
+          labels: |
+            org.opencontainers.image.title=${{ github.event.repository.name }}-${{ matrix.service }}
+            org.opencontainers.image.description=Bun Full-Stack Starter ${{ matrix.service }} container image
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.source=${{ env.REPOSITORY_URL }}
 
       - name: Prepare image artifact directory
         if: ${{ matrix.changed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -350,3 +356,14 @@ jobs:
               docker push "$tag"
             fi
           done
+
+      - name: Summarize container publishing
+        if: ${{ matrix.changed == 'true' }}
+        run: |
+          {
+            echo "### Published \`${{ matrix.service }}\`"
+            echo ""
+            echo "- Image: \`ghcr.io/${{ github.repository }}/${{ matrix.service }}\`"
+            echo "- Repository: ${{ env.REPOSITORY_URL }}"
+            echo "- Note: New GHCR container packages default to private. If this is the first publish for this image, open its package settings on GitHub and change visibility to Public for anonymous pulls."
+          } >> "$GITHUB_STEP_SUMMARY"
