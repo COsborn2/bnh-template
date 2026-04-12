@@ -67,6 +67,11 @@ export function parseClientMessage(raw: string): ClientMessage | null {
     ) {
       return null;
     }
+
+    if (msg.type === "message" && !Object.hasOwn(msg, "data")) {
+      return null;
+    }
+
     return msg as ClientMessage;
   } catch {
     return null;

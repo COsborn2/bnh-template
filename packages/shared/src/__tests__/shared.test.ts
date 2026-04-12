@@ -59,6 +59,13 @@ describe("parseClientMessage", () => {
     expect(result).toBeNull();
   });
 
+  test("returns null for message payloads missing data", () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: "message", topic: "chat:lobby" })
+    );
+    expect(result).toBeNull();
+  });
+
   test("returns null for non-string topic", () => {
     const result = parseClientMessage(
       JSON.stringify({ type: "subscribe", topic: 123 })

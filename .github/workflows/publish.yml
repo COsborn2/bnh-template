@@ -57,7 +57,6 @@ jobs:
               - 'packages/db/**'
             proxy:
               - 'infra/proxy/**'
-              - 'packages/theme/**'
 
   build-and-push:
     name: Build ${{ matrix.service }}
@@ -132,5 +131,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', secrets.NEXT_PUBLIC_APP_NAME) || '' }}
-            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY) || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME) || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY) || '' }}
