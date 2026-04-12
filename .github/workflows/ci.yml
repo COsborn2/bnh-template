@@ -114,19 +114,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
       - name: Build proxy image
         run: docker build -t app-proxy ./infra/proxy
 
       - name: Validate Caddyfile
         run: docker run --rm app-proxy caddy validate --config /etc/caddy/Caddyfile
 
-      - name: Validate service Dockerfiles (syntax only)
+      - name: Build service images
         run: |
           for service in api ws cron migrate; do
-            echo "Checking apps/$service/Dockerfile..."
-            docker buildx build --check -f "apps/$service/Dockerfile" .
+            echo "Building apps/$service/Dockerfile..."
+            docker buildx build --load -t "app-$service:test" -f "apps/$service/Dockerfile" .
           done
-          echo "Checking apps/web/Dockerfile..."
-          docker buildx build --check -f apps/web/Dockerfile \
+          echo "Building apps/web/Dockerfile..."
+          docker buildx build --load -t app-web:test -f apps/web/Dockerfile \
             --build-arg NEXT_PUBLIC_APP_NAME=CI \
             --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=test .

@@ -14,13 +14,7 @@ RUN bun run --filter=@app/api build
 FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
 
-COPY --from=pruner /app/out/json/ .
-RUN bun install --frozen-lockfile --production
-
 COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/packages/db ./packages/db
-COPY --from=build /app/packages/email ./packages/email
-COPY --from=build /app/packages/shared ./packages/shared
 
 EXPOSE 3001
 USER bun
