@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "bun build src/migrate.ts --outdir dist --target bun --production",
     "migrate": "bun --env-file=../../.env src/migrate.ts",
+    "start": "bun dist/migrate.js",
     "db:generate": "bun --env-file=../../.env node_modules/.bin/drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env node_modules/.bin/drizzle-kit migrate",
     "lint": "tsc --noEmit"
