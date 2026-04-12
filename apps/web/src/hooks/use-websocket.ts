@@ -66,6 +66,8 @@ export function useWebSocket({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return;
+
       reconnectAttempt.current = 0;
       setConnected(true);
       onConnectionChangeRef.current?.(true);
@@ -78,6 +80,8 @@ export function useWebSocket({
     };
 
     ws.onmessage = (event) => {
+      if (wsRef.current !== ws) return;
+
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
         switch (msg.type) {
@@ -94,6 +98,8 @@ export function useWebSocket({
     };
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return;
+
       wsRef.current = null;
       setConnected(false);
       onConnectionChangeRef.current?.(false);
@@ -113,6 +119,7 @@ export function useWebSocket({
     };
 
     ws.onerror = () => {
+      if (wsRef.current !== ws) return;
       // onclose will fire after this, triggering reconnect
     };
   }, []);
