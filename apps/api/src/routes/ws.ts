@@ -39,12 +39,14 @@ ws.post("/authorize", async (c) => {
 
 // POST /api/ws/events
 // Called by the WS server when a client sends a message.
-// Receives { topic, data, userId } and processes the business logic.
+// Receives { topic, data, userId, userName, isGuest } and processes the business logic.
 ws.post("/events", async (c) => {
-  const { topic, data, userId } = await c.req.json<{
+  const { topic, data, userId, userName, isGuest } = await c.req.json<{
     topic: string;
     data: unknown;
     userId: string;
+    userName: string;
+    isGuest: boolean;
   }>();
 
   // ----- EXAMPLE: Chat message handling -----
@@ -60,6 +62,8 @@ ws.post("/events", async (c) => {
     publishEvent(topic, {
       type: "chat:message",
       userId,
+      userName,
+      isGuest,
       body: (data as { body?: string })?.body ?? "",
       timestamp: Date.now(),
     });
