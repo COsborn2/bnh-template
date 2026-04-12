@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "bun build src/cleanup.ts --outdir dist --target bun --production",
     "cleanup": "bun src/cleanup.ts",
+    "start": "bun dist/cleanup.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
