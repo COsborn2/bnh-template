@@ -10,6 +10,12 @@ Caddy reverse proxy that routes traffic to the web and API services. Includes a 
   - **Browser requests** get a branded loading page that auto-refreshes until the service is up
   - **API requests** (`/api/*`) get a `503` JSON response: `{"error":"Service is starting up","retryAfter":3}`
 
+## Logging
+
+- Common scanner noise and direct static utility paths such as `robots.txt` and the proxy-served `favicon.ico` are skipped in access logs.
+- Proxied requests keep their access logs and include a lightweight `route` label so it is easier to distinguish `api`, `ws`, `web`, and startup-fallback traffic in Railway logs.
+- Remaining access log entries are trimmed down by dropping verbose request/response header objects while keeping a compact `client_ip` field derived from `X-Forwarded-For`.
+
 ## Theme Colors
 
 The loading page uses colors from `packages/theme/colors.json` (the shared source of truth). To update colors:

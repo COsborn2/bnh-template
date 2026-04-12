@@ -6,7 +6,16 @@
 	log {
 		output stdout
 		level INFO
+		format filter {
+			request>headers delete
+			request>remote_port delete
+			request>tls delete
+			resp_headers delete
+			wrap json
+		}
 	}
+
+	log_append client_ip {http.request.header.X-Forwarded-For}
 
 	# Block common bot/scanner paths — respond without waking upstream
 	@blocked path /wp-admin/* /wp-login* /wp-content/* /wp-includes/* /wp-config.php /wp-cron.php /xmlrpc.php \
@@ -15,11 +24,13 @@
  /cgi-bin/* /vendor/* /node_modules/* /solr/* /actuator/* /debug/* /console/* /telescope/* /api/v1/pods /remote/* /boaform/* \
  /backup* /db.sql /dump.sql
 	handle @blocked {
+		log_skip
 		respond 404
 	}
 
 	# Serve robots.txt directly — don't wake upstream
 	handle /robots.txt {
+		log_skip
 		header Content-Type text/plain
 		respond "User-agent: *
 Disallow: /api/
@@ -29,21 +40,29 @@ Allow: /
 
 	# Block internal WS service-to-service routes from external access
 	handle /api/ws/* {
+		log_append route "blocked_ws_internal"
 		respond 403
 	}
 
 	handle /api/* {
+		log_append route "api"
 		reverse_proxy {$API_URL}
+		log_append upstream_host {rp.upstream.host}
+		log_append upstream_duration_ms {rp.upstream.duration_ms}
 	}
 
 	handle /ws* {
-		reverse_proxy {$WS_URL} {
-			header_up X-Real-Client-IP {http.request.header.X-Real-IP}
-		}
+		log_append route "ws"
+		reverse_proxy {$WS_URL}
+		log_append upstream_host {rp.upstream.host}
+		log_append upstream_duration_ms {rp.upstream.duration_ms}
 	}
 
 	handle {
+		log_append route "web"
 		reverse_proxy {$WEB_URL}
+		log_append upstream_host {rp.upstream.host}
+		log_append upstream_duration_ms {rp.upstream.duration_ms}
 	}
 
 	handle_errors 502 503 504 {
@@ -56,17 +75,20 @@ Allow: /
 
 		@ws path /ws*
 		handle @ws {
+			log_append route "ws_startup"
 			header Content-Type application/json
 			respond `{"error":"WebSocket service is starting up","retryAfter":3}` 503
 		}
 
 		@favicon path /favicon.ico
 		handle @favicon {
+			log_skip
 			root * /srv
 			file_server
 		}
 
 		handle {
+			log_append route "web_startup"
 			header X-Loading-Page true
 			root * /srv
 			rewrite * /loading.html
