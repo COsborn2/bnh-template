@@ -18,6 +18,7 @@ export interface WsData {
   userId: string;
   sessionId: string;
   userName: string;
+  isGuest: boolean;
   /** Timestamps of recent messages for rate limiting */
   messageTimestamps: number[];
 }
