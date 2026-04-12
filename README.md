@@ -242,6 +242,25 @@ The `infra/proxy/` directory contains a Caddy reverse proxy configuration that r
 
 Each app has its own `Dockerfile` or `railway.json` where applicable.
 
+### Container Publishing
+
+Pushes to `main` publish changed service images to GHCR as:
+
+```text
+ghcr.io/<owner>/<repo>/<service>:latest
+ghcr.io/<owner>/<repo>/<service>:sha-...
+```
+
+The publish workflow attaches OCI metadata, including `org.opencontainers.image.source`, so packages stay linked back to the repository.
+
+If you want anonymous `docker pull` access, make each package public in GitHub after its first publish:
+
+1. Open the package from the repository owner's `Packages` tab.
+2. Open `Package settings`.
+3. Under `Danger Zone`, choose `Change visibility` and set it to `Public`.
+
+GitHub currently creates new container packages as private by default, even when they are linked to a repository.
+
 ## License
 
 MIT
