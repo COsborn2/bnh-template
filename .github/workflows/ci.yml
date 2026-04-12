@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
@@ -27,7 +28,6 @@ jobs:
       cron: ${{ steps.filter.outputs.cron }}
       migrate: ${{ steps.filter.outputs.migrate }}
       proxy: ${{ steps.filter.outputs.proxy }}
-      any_docker: ${{ steps.any.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,20 +77,6 @@ jobs:
               - 'turbo.json'
             proxy:
               - 'infra/proxy/**'
-
-      - name: Check for changed Docker services
-        id: any
-        run: |
-          if [[ "${{ steps.filter.outputs.web }}" == 'true' \
-            || "${{ steps.filter.outputs.api }}" == 'true' \
-            || "${{ steps.filter.outputs.ws }}" == 'true' \
-            || "${{ steps.filter.outputs.cron }}" == 'true' \
-            || "${{ steps.filter.outputs.migrate }}" == 'true' \
-            || "${{ steps.filter.outputs.proxy }}" == 'true' ]]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
 
   lint:
     name: Lint
@@ -193,7 +179,6 @@ jobs:
     name: Docker ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: [changes, lint, build, test]
-    if: ${{ needs.changes.outputs.any_docker == 'true' }}
     permissions:
       contents: read
     strategy:
@@ -304,7 +289,7 @@ jobs:
     name: Publish ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: [changes, docker]
-    if: ${{ needs.changes.outputs.any_docker == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     permissions:
       contents: read
       packages: write
