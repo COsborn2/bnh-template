@@ -61,4 +61,3 @@ curl -s http://localhost:8080/api/test
 | `Dockerfile` | Container image (caddy:2-alpine + config + loading page) |
 | `loading.template.html` | Loading page template with `/* THEME_VARS */` placeholder |
 | `loading.html` | Generated loading page (do not edit directly) |
-| `railway.json` | Railway deployment config |

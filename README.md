@@ -1,6 +1,6 @@
 # Bun Full-Stack Starter
 
-A production-ready full-stack starter template built with Bun, Hono, and Next.js. Ships with complete authentication (better-auth), email verification, admin tools, and a clean monorepo structure so you can skip the boilerplate and start building features.
+A production-ready Bun monorepo with Hono, Next.js, PostgreSQL, Redis, better-auth, and a Caddy edge proxy. It is designed to work well locally and to deploy cleanly as separate services on Railway.
 
 ## Quick Start
 
@@ -10,21 +10,21 @@ A production-ready full-stack starter template built with Bun, Hono, and Next.js
 bunx create-bnh my-app
 ```
 
-This scaffolds a new project from the template, replacing all placeholder names with your project name, installing dependencies, and initializing a git repo.
+This scaffolds a new project from the template, replaces placeholder names, installs dependencies, and initializes a git repo.
 
-### Local development of the template itself
+### Work on the template itself
 
-If you're working on the template and want to test `bun create` locally:
+If you are developing this template and want to test `bun create` locally:
 
 ```bash
-# In the template repo
+# In this repo
 bun link
 
 # From anywhere
 bun create bnh my-app
 ```
 
-`bun link` registers the local `create-bnh` package globally so `bun create bnh` resolves to your local copy instead of a registry. Changes to the template are picked up immediately — no need to re-link after edits.
+`bun link` registers the local `create-bnh` package globally, so `bun create bnh` resolves to your local copy instead of the registry.
 
 ## Tech Stack
 
@@ -34,68 +34,64 @@ bun create bnh my-app
 | API | Hono |
 | Frontend | Next.js, React |
 | Database | PostgreSQL, Drizzle ORM |
+| Realtime | Bun WebSocket server, Redis pub/sub |
 | Auth | better-auth |
 | Email | Resend, React Email |
+| Edge proxy | Caddy |
 | Styling | Tailwind CSS |
 | Monorepo | Turborepo, Bun workspaces |
 
 ## Features
 
-- **Email/password authentication** with email verification
-- **Google OAuth** (optional -- leave env vars empty to disable)
-- **Password reset** via secure email links
-- **Username support** with availability checking
-- **Admin API** -- user management, ban/unban, impersonation (API-only, no UI)
-- **Cloudflare Turnstile CAPTCHA** on auth endpoints
-- **Have I Been Pwned** password checking
-- **Disposable email blocking** on signup
-- **Rate limiting** (database-backed, per-endpoint rules)
-- **Auto-generated API docs** at [`/api/auth/reference`](http://localhost:3000/api/auth/reference) (dev only)
-- **Dark/light theme** toggle
-- **Comprehensive API test suite** (auth, admin, security, usernames)
+- Email/password authentication with email verification
+- Google OAuth support that can be disabled by leaving credentials unset
+- Password reset and password-changed email flows
+- Username support with availability checking
+- Admin API and built-in admin UI
+- Cloudflare Turnstile on auth flows
+- Have I Been Pwned password checks
+- Disposable email blocking
+- Database-backed rate limiting
+- Standalone WebSocket service with Redis fan-out
+- Proxy-ready deployment topology for Railway and similar platforms
+- Dockerfiles for each deployable service
+- GHCR publishing workflow for service images
+- API tests covering auth, admin, security, and usernames
 
 ## Monorepo Structure
 
-```
+```text
 bun-template/
 ├── apps/
-│   ├── api/             # Bun + Hono API server
-│   │   └── src/
-│   │       ├── lib/         # better-auth config, utilities
-│   │       ├── services/    # Business logic (email validation)
-│   │       └── __tests__/   # API test suite
-│   ├── web/             # Next.js 16 frontend
-│   │   └── src/
-│   │       ├── app/
-│   │       │   ├── auth/        # Login, register, verify, reset password
-│   │       │   ├── dashboard/   # Main app page (post-login)
-│   │       │   └── settings/    # Profile, security, sessions
-│   │       ├── components/      # UI components
-│   │       └── lib/             # Auth client, API helpers
-│   ├── migrate/         # Drizzle migration runner
-│   └── cron/            # Scheduled jobs shell
+│   ├── api/       # Hono API server
+│   ├── web/       # Next.js frontend
+│   ├── ws/        # Standalone WebSocket server
+│   ├── migrate/   # Drizzle migration runner
+│   └── cron/      # Scheduled-job shell
 ├── packages/
-│   ├── db/              # Drizzle schema + database client
-│   ├── email/           # React Email templates + Resend sender
-│   ├── shared/          # Shared TypeScript types
-│   └── theme/           # Design token colors
+│   ├── db/        # Drizzle schema + database client
+│   ├── email/     # React Email templates + sender
+│   ├── shared/    # Shared TypeScript types
+│   └── theme/     # Shared design tokens
 ├── infra/
-│   └── proxy/           # Caddy reverse proxy config
+│   └── proxy/     # Caddy reverse proxy + loading page
+├── docker-compose.yml
 ├── turbo.json
 └── package.json
 ```
 
 ## Getting Started
 
-**Prerequisites:** [Bun](https://bun.sh) (1.3+), [Docker](https://docs.docker.com/get-docker/) (for PostgreSQL and Redis)
+**Prerequisites:** [Bun](https://bun.sh) 1.3+ and [Docker](https://docs.docker.com/get-docker/)
 
 ```bash
-# Create a new project (sets up .env files automatically)
+# Create a new app
 bunx create-bnh my-app
 cd my-app
 
-# Configure environment
-# Edit .env and apps/web/.env.local with your secrets
+# Review the generated env files
+#   .env
+#   apps/web/.env.local
 
 # Start PostgreSQL and Redis
 docker compose up -d
@@ -103,144 +99,143 @@ docker compose up -d
 # Run migrations
 bun run db:migrate
 
-# Start development
+# Start local development
 bun run dev
-# API:            http://localhost:3001
-# Web:            http://localhost:3000
-# WebSocket:      ws://localhost:3002
-# Email preview:  http://localhost:4000
-# API docs:       http://localhost:3000/api/auth/reference
 ```
 
-### Docker Services (PostgreSQL & Redis)
+Local dev URLs:
 
-The included `docker-compose.yml` runs PostgreSQL 17 and Redis 7. PostgreSQL data is persisted in a Docker volume.
+- Web: [http://localhost:3000](http://localhost:3000)
+- API: [http://localhost:3001/api/health](http://localhost:3001/api/health)
+- WebSocket: `ws://localhost:3002`
+- API docs: [http://localhost:3000/api/auth/reference](http://localhost:3000/api/auth/reference)
+
+### Local Docker Services
+
+The included `docker-compose.yml` starts:
+
+- PostgreSQL 17 on `localhost:5433`
+- Redis 7 on `localhost:6379`
+
+Useful commands:
 
 ```bash
-docker compose up -d       # Start PostgreSQL and Redis
-docker compose down        # Stop services (data persisted)
-docker compose down -v     # Stop and delete all data
+docker compose up -d
+docker compose down
+docker compose down -v
 ```
 
-The default `.env.example` connection string (`postgresql://postgres:postgres@localhost:5433/myapp`) matches the Docker Compose config out of the box. Port 5433 is used to avoid conflicts with any local PostgreSQL installation on the default port (5432).
-
-Redis runs on the default port (6379) and is required for the WebSocket server. If Redis isn't running, the WS server will log `[redis] connection failed — is Redis running?` and retry automatically.
-
-> **Already have PostgreSQL locally?** Skip Docker for Postgres — just create a database (`createdb myapp`) and make sure `DATABASE_URL` in `.env` points to it. You still need Redis running for WebSocket support.
-
-### Dev Mode Notes
-
-| Service | Dev behavior |
-|---|---|
-| Resend (email) | Without `RESEND_API_KEY`, emails are logged to the console with clickable action URLs |
-| Cloudflare Turnstile | `.env.example` ships with Cloudflare's public test keys (always passes) |
-| Google OAuth | Leave `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` empty to disable — email/password still works |
+The default `DATABASE_URL` in `.env.example` already matches the Compose setup.
 
 ## Environment Variables
 
-**Root `.env`** (API server):
+### Root `.env`
 
-| Variable | Required | Description |
+These are used by the API locally, and several are also shared by the WebSocket service.
+
+| Variable | Local default | Notes |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `BETTER_AUTH_SECRET` | Yes | Secret key for signing tokens |
-| `BETTER_AUTH_URL` | Yes | Base URL for auth (e.g. `http://localhost:3000`) |
-| `PORT` | No | API server port (default: `3001`) |
-| `APP_NAME` | No | App name in emails (default: `MyApp`) |
-| `APP_URL` | No | Base URL for email links (default: `http://localhost:3000`) |
-| `EMAIL_FROM` | No | Email sender address |
-| `RESEND_API_KEY` | Prod | Resend API key |
-| `TURNSTILE_SECRET_KEY` | Prod | Cloudflare Turnstile secret key |
-| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5433/myapp` | Required |
+| `BETTER_AUTH_SECRET` | `dev-secret-change-in-production` | Required |
+| `BETTER_AUTH_URL` | `http://localhost:3000` | Required in deployed environments |
+| `PORT` | `3001` | API only |
+| `APP_NAME` | `MyApp` | Optional |
+| `APP_URL` | `http://localhost:3000` | Required in deployed environments for correct email links |
+| `RESEND_API_KEY` | `re_your_key_here` | Optional locally |
+| `EMAIL_FROM` | `MyApp <onboarding@resend.dev>` | Optional |
+| `TURNSTILE_SECRET_KEY` | Cloudflare test key | Required in deployed environments |
+| `GOOGLE_CLIENT_ID` | empty | Optional |
+| `GOOGLE_CLIENT_SECRET` | empty | Optional |
+| `REDIS_URL` | `redis://localhost:6379` | Required if you use the WebSocket flow |
+| `WS_AUTH_URL` | `http://localhost:3001/api/auth/get-session` | Required for `apps/ws` |
+| `WS_AUTHORIZE_URL` | `http://localhost:3001/api/ws/authorize` | Required for `apps/ws` |
+| `WS_EVENTS_URL` | `http://localhost:3001/api/ws/events` | Required for `apps/ws` |
+| `WS_API_SECRET` | `dev-ws-secret-change-in-production` | Required for API ↔ WS internal auth |
+| `DB_QUERY_LOGGING` | unset | Optional; set to `true` to log SQL queries |
 
-**`apps/web/.env.local`** (Next.js frontend):
+### `apps/web/.env.local`
 
-| Variable | Required | Description |
+| Variable | Local default | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Prod | Cloudflare Turnstile site key |
-| `NEXT_PUBLIC_APP_NAME` | No | App name in UI (default: `MyApp`) |
-| `NEXT_PUBLIC_API_URL` | Prod | API base URL (uses Next.js proxy in dev) |
+| `NEXT_PUBLIC_APP_NAME` | `MyApp` | Optional |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare test key | Required in deployed environments |
+| `NEXT_PUBLIC_WS_URL` | unset | Optional; useful for direct local WS connections, usually omitted in production because the proxy serves `/ws` |
 
-**Root `.env`** (WebSocket server + shared):
+### Deployment-only variables
 
-| Variable | Required | Description |
+These are not needed for local dev, but they matter in Railway:
+
+| Variable | Used by | Notes |
 |---|---|---|
-| `REDIS_URL` | Yes | Redis connection string |
-| `WS_AUTH_URL` | Yes | URL for session validation (points to API auth endpoint) |
-| `WS_AUTHORIZE_URL` | Yes | URL for topic authorization (points to API) |
-| `WS_EVENTS_URL` | Yes | URL for event forwarding (points to API) |
-| `WS_API_SECRET` | Yes | Shared secret for WS-to-API authentication |
+| `API_INTERNAL_URL` | `apps/web` | Required in Railway so Next.js rewrites `/api/*` to the private API service URL |
+| `RAILWAY_DOCKERFILE_PATH` | each Railway service | Points each Railway service at the correct Dockerfile |
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| `docker compose up -d` | Start PostgreSQL |
-| `bun run dev` | Start API + web in watch mode |
-| `bun run build` | Production build (all packages) |
-| `bun run lint` | Lint all packages |
-| `bun run test` | Run API test suite |
-| `bun run db:generate` | Generate migration from schema changes |
+| `bun run dev` | Start API, web, and other watch-mode tasks |
+| `bun run build` | Build all packages and apps |
+| `bun run lint` | Lint the repo |
+| `bun run test` | Run the test suite |
+| `bun run db:generate` | Generate a Drizzle migration |
 | `bun run db:migrate` | Apply pending migrations |
+| `bun run seed` | Seed local example data using `.env` |
 
-## Adding Your Own Features
+## Health Checks
+
+These are the useful endpoints when you deploy the services separately:
+
+| Service | Path |
+|---|---|
+| API | `/api/health` |
+| Web | `/health` |
+| WebSocket | `/health` |
+| Proxy | `/robots.txt` |
+
+## Customizing the App
 
 | What | Where |
 |---|---|
-| API routes | `apps/api/src/app.ts` -- add Hono routes or mount sub-routers |
-| Frontend pages | `apps/web/src/app/` -- Next.js App Router conventions |
-| Database schema | `packages/db/src/schema.ts` -- Drizzle table definitions |
-| Email templates | `packages/email/` -- React Email components |
-| API tests | `apps/api/src/__tests__/` -- Bun test runner |
+| API routes | `apps/api/src/app.ts` |
+| Realtime authorization and event handling | `apps/api/src/routes/ws.ts` |
+| Frontend routes | `apps/web/src/app/` |
+| Database schema | `packages/db/src/schema.ts` |
+| Email templates | `packages/email/` |
+| Shared protocol types | `packages/shared/` |
+| Proxy behavior | `infra/proxy/Caddyfile` |
 
-After changing the schema, run `bun run db:generate` to create a migration, then `bun run db:migrate` to apply it.
+After schema changes:
 
-### Admin API
+```bash
+bun run db:generate
+bun run db:migrate
+```
 
-The admin plugin provides a REST API for user management — there is no built-in admin UI. You can explore all available endpoints (including admin) via the interactive API docs at [`/api/auth/reference`](http://localhost:3000/api/auth/reference).
+## Admin
 
-To make a user an admin, set their `role` to `"admin"` in the database:
+The template includes:
+
+- Admin API endpoints exposed through better-auth
+- A built-in `/admin` UI for users with the `admin` role
+- User search, moderation, impersonation, session revocation, and deletion flows
+
+To promote a user manually:
 
 ```sql
 UPDATE "user" SET role = 'admin' WHERE email = 'you@example.com';
 ```
 
-Admin endpoints include: list users, ban/unban, set roles, impersonate, revoke sessions. All require an authenticated user with the `admin` role.
-
-### Admin Dashboard
-
-The template includes a built-in admin UI at `/admin` (only visible to users with the `admin` role). Features:
-
-- **User management** — search, filter by role/status, pagination
-- **User actions** — change role, ban/unban (with reason and duration), revoke sessions
-- **User detail** — view sessions, impersonate, delete (with confirmation)
-- **Extensible** — add your own admin pages via the "App Admin" placeholder
-
-The admin area returns 404 for non-admin users.
-
-### Customizing the Favicon
-
-The template ships with a generic favicon. To replace it with your own brand, update these files:
-
-| File | Location | Purpose |
-|---|---|---|
-| `favicon.ico` | `apps/web/src/app/` | Browser tab icon |
-| `icon0.svg` | `apps/web/src/app/` | SVG icon (modern browsers) |
-| `icon1.png` | `apps/web/src/app/` | PNG fallback (96x96) |
-| `apple-icon.png` | `apps/web/src/app/` | Apple touch icon (180x180) |
-| `manifest.json` | `apps/web/src/app/` | PWA manifest (update `name` and `short_name`) |
-| `web-app-manifest-192x192.png` | `apps/web/public/` | PWA icon (192x192) |
-| `web-app-manifest-512x512.png` | `apps/web/public/` | PWA icon (512x512) |
-| `favicon.ico` | `infra/proxy/` | Served during cold-start loading page |
-
-[RealFaviconGenerator](https://realfavicongenerator.net) can generate all these files from a single image.
-
 ## Deployment
 
-The `infra/proxy/` directory contains a Caddy reverse proxy configuration that routes `/api/*` to the API server and everything else to the Next.js frontend. This is ready to deploy to any container platform (Railway, Fly.io, etc.).
+Use [DEPLOYMENT.md](./DEPLOYMENT.md) for the detailed Railway guide. It includes:
 
-Each app has its own `Dockerfile` or `railway.json` where applicable.
+- recommended service layout
+- exact `RAILWAY_DOCKERFILE_PATH` values
+- shared vs per-service variables
+- initial migration order
+- public domain and private networking setup
+- cron and migration-service guidance
 
 ### Container Publishing
 
@@ -251,15 +246,13 @@ ghcr.io/<owner>/<repo>/<service>:latest
 ghcr.io/<owner>/<repo>/<service>:sha-...
 ```
 
-The publish workflow attaches OCI metadata, including `org.opencontainers.image.source`, so packages stay linked back to the repository.
+The workflow attaches OCI metadata, including `org.opencontainers.image.source`, so packages stay linked back to the repository.
 
 If you want anonymous `docker pull` access, make each package public in GitHub after its first publish:
 
 1. Open the package from the repository owner's `Packages` tab.
 2. Open `Package settings`.
 3. Under `Danger Zone`, choose `Change visibility` and set it to `Public`.
-
-GitHub currently creates new container packages as private by default, even when they are linked to a repository.
 
 ## License
 
