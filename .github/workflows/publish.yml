@@ -1,0 +1,135 @@
+name: Publish
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
+      ws: ${{ steps.filter.outputs.ws }}
+      cron: ${{ steps.filter.outputs.cron }}
+      migrate: ${{ steps.filter.outputs.migrate }}
+      proxy: ${{ steps.filter.outputs.proxy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/theme/**'
+              - 'packages/shared/**'
+            api:
+              - 'apps/api/**'
+              - 'packages/db/**'
+              - 'packages/email/**'
+              - 'packages/shared/**'
+            ws:
+              - 'apps/ws/**'
+              - 'packages/shared/**'
+            cron:
+              - 'apps/cron/**'
+              - 'packages/db/**'
+            migrate:
+              - 'apps/migrate/**'
+              - 'packages/db/**'
+            proxy:
+              - 'infra/proxy/**'
+
+  build-and-push:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: web
+            dockerfile: apps/web/Dockerfile
+            changed: ${{ needs.changes.outputs.web }}
+          - service: api
+            dockerfile: apps/api/Dockerfile
+            changed: ${{ needs.changes.outputs.api }}
+          - service: ws
+            dockerfile: apps/ws/Dockerfile
+            changed: ${{ needs.changes.outputs.ws }}
+          - service: cron
+            dockerfile: apps/cron/Dockerfile
+            changed: ${{ needs.changes.outputs.cron }}
+          - service: migrate
+            dockerfile: apps/migrate/Dockerfile
+            changed: ${{ needs.changes.outputs.migrate }}
+          - service: proxy
+            dockerfile: infra/proxy/Dockerfile
+            context: infra/proxy
+            changed: ${{ needs.changes.outputs.proxy }}
+
+    steps:
+      - name: Skip unchanged service
+        if: ${{ matrix.changed != 'true' }}
+        run: echo "No changes detected for ${{ matrix.service }}, skipping build."
+
+      - uses: actions/checkout@v4
+        if: ${{ matrix.changed == 'true' }}
+
+      - name: Log in to GHCR
+        if: ${{ matrix.changed == 'true' }}
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: ${{ matrix.changed == 'true' }}
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Extract metadata
+        if: ${{ matrix.changed == 'true' }}
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - name: Build and push
+        if: ${{ matrix.changed == 'true' }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context || '.' }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME) || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY) || '' }}
