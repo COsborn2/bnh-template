@@ -3,6 +3,7 @@ import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { auth } from "./lib/auth.js";
 import { wsRoutes } from "./routes/ws.js";
+import { betterAuthCorsOrigin } from "./lib/config.js";
 
 const app = new Hono().basePath("/api");
 
@@ -10,7 +11,7 @@ const app = new Hono().basePath("/api");
 app.use(
   "/auth/*",
   cors({
-    origin: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    origin: betterAuthCorsOrigin,
     allowHeaders: ["Content-Type", "Authorization", "x-captcha-response"],
     allowMethods: ["POST", "GET", "OPTIONS"],
     credentials: true,
