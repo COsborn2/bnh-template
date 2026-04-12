@@ -43,6 +43,29 @@ function buildGuestName() {
   return `${randomItem(ADJECTIVES)} ${randomItem(ANIMALS)}`;
 }
 
+function isLocalDevHostname(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
+}
+
+function buildSocketUrl({ port }: { port?: string } = {}) {
+  const url = new URL(window.location.href);
+  url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = "/ws";
+  url.search = "";
+  url.hash = "";
+
+  if (port) {
+    url.port = port;
+  }
+
+  return url.toString();
+}
+
 export function createGuestProfile(): GuestProfile {
   return {
     id: crypto.randomUUID(),
@@ -51,7 +74,13 @@ export function createGuestProfile(): GuestProfile {
 }
 
 export function loadGuestProfile(): GuestProfile {
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  let stored: string | null = null;
+
+  try {
+    stored = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // Some browser contexts block storage access entirely.
+  }
 
   if (stored) {
     try {
@@ -75,20 +104,20 @@ export function loadGuestProfile(): GuestProfile {
 }
 
 export function saveGuestProfile(profile: GuestProfile) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  } catch {
+    // Ignore storage failures and keep the in-memory guest profile.
+  }
 }
 
 export function buildChatWebSocketUrl(guestProfile?: GuestProfile | null) {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const hostname = window.location.hostname;
-  const isLocalhost =
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1";
-  const localDevUrl = `${protocol}//${hostname}:3002/ws`;
-  const fallbackUrl = `${protocol}//${window.location.host}/ws`;
+  const localDevUrl = buildSocketUrl({ port: "3002" });
+  const fallbackUrl = buildSocketUrl();
   const url = new URL(
-    process.env.NEXT_PUBLIC_WS_URL || (isLocalhost ? localDevUrl : fallbackUrl),
+    process.env.NEXT_PUBLIC_WS_URL ||
+      (isLocalDevHostname(hostname) ? localDevUrl : fallbackUrl),
   );
 
   if (url.pathname === "/" || url.pathname === "") {
