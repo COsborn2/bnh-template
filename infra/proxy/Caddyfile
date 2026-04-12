@@ -37,9 +37,7 @@ Allow: /
 	}
 
 	handle /ws* {
-		reverse_proxy {$WS_URL} {
-			header_up X-Real-Client-IP {http.request.header.X-Real-IP}
-		}
+		reverse_proxy {$WS_URL}
 	}
 
 	handle {
