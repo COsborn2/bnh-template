@@ -11,6 +11,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
+      ws: ${{ steps.filter.outputs.ws }}
+      cron: ${{ steps.filter.outputs.cron }}
+      migrate: ${{ steps.filter.outputs.migrate }}
+      proxy: ${{ steps.filter.outputs.proxy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/theme/**'
+              - 'packages/shared/**'
+            api:
+              - 'apps/api/**'
+              - 'packages/db/**'
+              - 'packages/email/**'
+              - 'packages/shared/**'
+            ws:
+              - 'apps/ws/**'
+              - 'packages/shared/**'
+            cron:
+              - 'apps/cron/**'
+              - 'packages/db/**'
+            migrate:
+              - 'apps/migrate/**'
+              - 'packages/db/**'
+            proxy:
+              - 'infra/proxy/**'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -108,14 +150,13 @@ jobs:
       - name: Test
         run: bun run test
 
-  docker:
-    name: Validate Dockerfiles
+  proxy-config:
+    name: Validate Proxy Config
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.proxy == 'true' }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build proxy image
         run: docker build -t app-proxy ./infra/proxy
@@ -123,13 +164,77 @@ jobs:
       - name: Validate Caddyfile
         run: docker run --rm app-proxy caddy validate --config /etc/caddy/Caddyfile
 
-      - name: Build service images
-        run: |
-          for service in api ws cron migrate; do
-            echo "Building apps/$service/Dockerfile..."
-            docker buildx build --load -t "app-$service:test" -f "apps/$service/Dockerfile" .
-          done
-          echo "Building apps/web/Dockerfile..."
-          docker buildx build --load -t app-web:test -f apps/web/Dockerfile \
-            --build-arg NEXT_PUBLIC_APP_NAME=CI \
-            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=test .
+  docker:
+    name: Docker ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: [changes, lint, build, test, proxy-config]
+    if: ${{ always() && needs.changes.result == 'success' && needs.lint.result == 'success' && needs.build.result == 'success' && needs.test.result == 'success' && (needs.proxy-config.result == 'success' || needs.proxy-config.result == 'skipped') }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: web
+            dockerfile: apps/web/Dockerfile
+            changed: ${{ needs.changes.outputs.web }}
+          - service: api
+            dockerfile: apps/api/Dockerfile
+            changed: ${{ needs.changes.outputs.api }}
+          - service: ws
+            dockerfile: apps/ws/Dockerfile
+            changed: ${{ needs.changes.outputs.ws }}
+          - service: cron
+            dockerfile: apps/cron/Dockerfile
+            changed: ${{ needs.changes.outputs.cron }}
+          - service: migrate
+            dockerfile: apps/migrate/Dockerfile
+            changed: ${{ needs.changes.outputs.migrate }}
+          - service: proxy
+            dockerfile: infra/proxy/Dockerfile
+            context: infra/proxy
+            changed: ${{ needs.changes.outputs.proxy }}
+    steps:
+      - name: Skip unchanged service
+        if: ${{ matrix.changed != 'true' }}
+        run: echo "No changes detected for ${{ matrix.service }}, skipping build."
+
+      - uses: actions/checkout@v4
+        if: ${{ matrix.changed == 'true' }}
+
+      - name: Log in to GHCR
+        if: ${{ matrix.changed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: ${{ matrix.changed == 'true' }}
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Extract metadata
+        if: ${{ matrix.changed == 'true' }}
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=sha,format=long
+
+      - name: Build image
+        if: ${{ matrix.changed == 'true' }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context || '.' }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          build-args: |
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME) || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY) || '' }}
