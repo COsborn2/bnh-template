@@ -367,3 +367,47 @@ jobs:
             echo "- Repository: ${{ env.REPOSITORY_URL }}"
             echo "- Note: New GHCR container packages default to private. If this is the first publish for this image, open its package settings on GitHub and change visibility to Public for anonymous pulls."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  redeploy:
+    name: Redeploy Railway ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: [changes, publish]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    strategy:
+      matrix:
+        include:
+          - service: web
+            changed: ${{ needs.changes.outputs.web }}
+          - service: api
+            changed: ${{ needs.changes.outputs.api }}
+          - service: ws
+            changed: ${{ needs.changes.outputs.ws }}
+          - service: cron
+            changed: ${{ needs.changes.outputs.cron }}
+          - service: proxy
+            changed: ${{ needs.changes.outputs.proxy }}
+    steps:
+      - name: Skip unchanged service
+        if: ${{ matrix.changed != 'true' }}
+        run: echo "No Docker changes detected for ${{ matrix.service }}, skipping Railway redeploy."
+
+      - name: Skip optional cron redeploy
+        if: ${{ matrix.changed == 'true' && matrix.service == 'cron' && vars.RAILWAY_ENABLE_CRON_REDEPLOY != 'true' }}
+        run: echo "Cron service redeploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
+
+      - name: Redeploy Railway service
+        if: ${{ matrix.changed == 'true' && (matrix.service != 'cron' || vars.RAILWAY_ENABLE_CRON_REDEPLOY == 'true') }}
+        run: railway redeploy --service "${{ matrix.service }}" --yes
+
+      - name: Summarize Railway redeploy
+        if: ${{ matrix.changed == 'true' && (matrix.service != 'cron' || vars.RAILWAY_ENABLE_CRON_REDEPLOY == 'true') }}
+        run: |
+          {
+            echo "### Redeployed Railway \`${{ matrix.service }}\`"
+            echo ""
+            echo "- Trigger: GHCR publish to \`:latest\` on \`main\`"
+            echo "- Command: \`railway redeploy --service ${{ matrix.service }} --yes\`"
+          } >> "$GITHUB_STEP_SUMMARY"
