@@ -394,12 +394,16 @@ jobs:
         if: ${{ matrix.changed != 'true' }}
         run: echo "No Docker changes detected for ${{ matrix.service }}, skipping Railway redeploy."
 
+      - name: Skip optional cron redeploy
+        if: ${{ matrix.changed == 'true' && matrix.service == 'cron' && vars.RAILWAY_ENABLE_CRON_REDEPLOY != 'true' }}
+        run: echo "Cron service redeploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
+
       - name: Redeploy Railway service
-        if: ${{ matrix.changed == 'true' }}
+        if: ${{ matrix.changed == 'true' && (matrix.service != 'cron' || vars.RAILWAY_ENABLE_CRON_REDEPLOY == 'true') }}
         run: railway redeploy --service "${{ matrix.service }}" --yes
 
       - name: Summarize Railway redeploy
-        if: ${{ matrix.changed == 'true' }}
+        if: ${{ matrix.changed == 'true' && (matrix.service != 'cron' || vars.RAILWAY_ENABLE_CRON_REDEPLOY == 'true') }}
         run: |
           {
             echo "### Redeployed Railway \`${{ matrix.service }}\`"
