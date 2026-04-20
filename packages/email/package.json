@@ -13,7 +13,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "resend": "^6.12.0",
+    "resend": "^6.12.2",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.7"
   },
