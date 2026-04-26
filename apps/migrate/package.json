@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "bun build src/migrate.ts --outdir dist --target bun --production",
     "migrate": "bun --env-file=../../.env src/migrate.ts",
+    "start": "bun dist/migrate.js",
     "db:generate": "bun --env-file=../../.env node_modules/.bin/drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env node_modules/.bin/drizzle-kit migrate",
     "lint": "tsc --noEmit"
@@ -12,11 +14,11 @@
   "dependencies": {
     "@app/db": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.8"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.11",
+    "@types/bun": "^1.3.12",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }

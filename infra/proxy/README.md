@@ -5,10 +5,17 @@ Caddy reverse proxy that routes traffic to the web and API services. Includes a 
 ## How It Works
 
 - `/api/*` routes to the API service
+- `/ws*` routes to the WebSocket service
 - Everything else routes to the web service
 - When an upstream is unreachable (502), `handle_errors` kicks in:
   - **Browser requests** get a branded loading page that auto-refreshes until the service is up
   - **API requests** (`/api/*`) get a `503` JSON response: `{"error":"Service is starting up","retryAfter":3}`
+
+## Logging
+
+- Common scanner noise and direct static utility paths such as `robots.txt` and the proxy-served `favicon.ico` are skipped in access logs.
+- Proxied requests keep their access logs and include a lightweight `route` label so it is easier to distinguish `api`, `ws`, `web`, and startup-fallback traffic in Railway logs.
+- Remaining access log entries are trimmed down by dropping verbose request/response header objects while keeping a compact `client_ip` field derived from `X-Forwarded-For`.
 
 ## Theme Colors
 
@@ -61,4 +68,3 @@ curl -s http://localhost:8080/api/test
 | `Dockerfile` | Container image (caddy:2-alpine + config + loading page) |
 | `loading.template.html` | Loading page template with `/* THEME_VARS */` placeholder |
 | `loading.html` | Generated loading page (do not edit directly) |
-| `railway.json` | Railway deployment config |

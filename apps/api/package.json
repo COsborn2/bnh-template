@@ -13,17 +13,18 @@
   "dependencies": {
     "@app/db": "workspace:*",
     "@app/email": "workspace:*",
+    "@app/shared": "workspace:*",
     "better-auth": "latest",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.10",
-    "postgres": "^3.4.8",
+    "hono": "^4.12.14",
+    "postgres": "^3.4.9",
     "zod": "^4.3.6",
     "ioredis": "^5.10.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.11",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "typescript": "^6.0.2"
+    "@types/bun": "^1.3.12",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "typescript": "^6.0.3"
   }
 }

@@ -71,6 +71,31 @@ function send(ws: ServerWebSocket<WsData>, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg));
 }
 
+function getGuestIdentity(
+  url: URL
+): { guestId: string; userId: string; userName: string } | null {
+  const guestId = url.searchParams.get("guestId");
+  const guestName = url.searchParams.get("guestName")?.trim();
+
+  if (!guestId || !guestName) {
+    return null;
+  }
+
+  if (!/^[a-zA-Z0-9-]{1,64}$/.test(guestId)) {
+    return null;
+  }
+
+  if (guestName.length > 40) {
+    return null;
+  }
+
+  return {
+    guestId,
+    userId: `guest:${guestId}`,
+    userName: guestName,
+  };
+}
+
 async function authorizeSubscription(
   topic: string,
   userId: string
@@ -95,7 +120,9 @@ async function authorizeSubscription(
 async function forwardEvent(
   topic: string,
   data: unknown,
-  userId: string
+  userId: string,
+  userName: string,
+  isGuest: boolean
 ): Promise<boolean> {
   try {
     const res = await fetch(eventsUrl!, {
@@ -104,7 +131,7 @@ async function forwardEvent(
         "Content-Type": "application/json",
         "X-WS-Secret": wsApiSecret!,
       },
-      body: JSON.stringify({ topic, data, userId }),
+      body: JSON.stringify({ topic, data, userId, userName, isGuest }),
     });
     return res.ok;
   } catch (err) {
@@ -135,20 +162,19 @@ const server = Bun.serve<WsData>({
     }
 
     const cookieHeader = request.headers.get("cookie");
-    if (!cookieHeader) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+    const auth = cookieHeader ? await validateSession(cookieHeader) : null;
+    const guest = auth ? null : getGuestIdentity(url);
 
-    const auth = await validateSession(cookieHeader);
-    if (!auth) {
+    if (!auth && !guest) {
       return new Response("Unauthorized", { status: 401 });
     }
 
     const upgraded = server.upgrade(request, {
       data: {
-        userId: auth.user.id,
-        sessionId: auth.sessionId,
-        userName: auth.user.name,
+        userId: auth?.user.id ?? guest!.userId,
+        sessionId: auth?.sessionId ?? `guest:${guest!.guestId}`,
+        userName: auth?.user.name ?? guest!.userName,
+        isGuest: !auth,
         messageTimestamps: [],
       },
     });
@@ -246,7 +272,13 @@ const server = Bun.serve<WsData>({
         }
 
         case "message": {
-          const ok = await forwardEvent(msg.topic, msg.data, ws.data.userId);
+          const ok = await forwardEvent(
+            msg.topic,
+            msg.data,
+            ws.data.userId,
+            ws.data.userName,
+            ws.data.isGuest
+          );
           if (!ok) {
             send(ws, {
               type: "error",

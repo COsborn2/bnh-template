@@ -15,6 +15,7 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "@app/email";
 import { validateEmailDomain } from "../services/email-validation.js";
 import { eq } from "drizzle-orm";
 import { user as userTable } from "@app/db/schema";
+import { betterAuthBaseUrl } from "./config.js";
 
 const isTest = process.env.NODE_ENV === "test";
 const isDev = process.env.NODE_ENV !== "production";
@@ -28,7 +29,7 @@ export function buildVerificationUrl(url: string): string {
 
 export const auth = betterAuth({
   appName: process.env.APP_NAME || "MyApp",
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: betterAuthBaseUrl,
   basePath: "/api/auth",
 
   database: drizzleAdapter(db, {
