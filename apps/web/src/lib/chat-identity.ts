@@ -43,25 +43,12 @@ function buildGuestName() {
   return `${randomItem(ADJECTIVES)} ${randomItem(ANIMALS)}`;
 }
 
-function isLocalDevHostname(hostname: string) {
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    hostname === "[::1]"
-  );
-}
-
-function buildSocketUrl({ port }: { port?: string } = {}) {
+function buildSocketUrl() {
   const url = new URL(window.location.href);
   url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = "/ws";
   url.search = "";
   url.hash = "";
-
-  if (port) {
-    url.port = port;
-  }
 
   return url.toString();
 }
@@ -112,13 +99,7 @@ export function saveGuestProfile(profile: GuestProfile) {
 }
 
 export function buildChatWebSocketUrl(guestProfile?: GuestProfile | null) {
-  const hostname = window.location.hostname;
-  const localDevUrl = buildSocketUrl({ port: "3002" });
-  const fallbackUrl = buildSocketUrl();
-  const url = new URL(
-    process.env.NEXT_PUBLIC_WS_URL ||
-      (isLocalDevHostname(hostname) ? localDevUrl : fallbackUrl),
-  );
+  const url = new URL(buildSocketUrl());
 
   if (url.pathname === "/" || url.pathname === "") {
     url.pathname = "/ws";

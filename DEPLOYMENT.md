@@ -162,9 +162,9 @@ Google OAuth note:
 | Variable | Example value | Required | Notes |
 |---|---|---|---|
 | `API_INTERNAL_URL` | `http://${{ api.RAILWAY_PRIVATE_DOMAIN }}:3001` | Required | Next.js uses this server-side to rewrite `/api/*` to the private API service. |
+| `WS_INTERNAL_URL` | `http://${{ ws.RAILWAY_PRIVATE_DOMAIN }}:3002` | Recommended | Next.js uses this server-side to rewrite `/ws` if requests hit the web service directly. |
 | `NEXT_PUBLIC_APP_NAME` | `${{ shared.APP_NAME }}` | Optional but recommended | If omitted, the UI falls back to `MyApp`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `0x4AAAAAAA...` | Required | Required for auth forms to work properly in production. |
-| `NEXT_PUBLIC_WS_URL` | leave unset | Optional | Usually omit this on Railway. The browser should connect to same-origin `/ws` through `proxy`. |
 
 Important build-time note:
 
@@ -278,7 +278,7 @@ The starter `apps/cron/src/cleanup.ts` already exits cleanly, which makes it saf
 - Expose only `proxy` publicly.
 - Use Railway private domains for all internal service-to-service traffic.
 - Keep `APP_URL` and `BETTER_AUTH_URL` identical in this architecture.
-- Keep `NEXT_PUBLIC_WS_URL` unset in Railway unless you intentionally want the browser to bypass the proxy.
+- Keep browser WebSocket traffic on same-origin `/ws`; use server-side routing env vars for upstream service URLs.
 - Keep `migrate` as a dedicated service so schema changes stay explicit and easy to rerun.
 - Keep secrets in shared variables only when multiple services need them; otherwise prefer service-local variables.
 
@@ -288,7 +288,7 @@ The starter `apps/cron/src/cleanup.ts` already exits cleanly, which makes it saf
 |---|---|---|
 | Auth links point at localhost | `APP_URL` or `BETTER_AUTH_URL` was left on the fallback | Set both to the real proxy domain and redeploy `api` |
 | Web requests to `/api/*` fail | `API_INTERNAL_URL` is missing or points to a public URL | Set it to the API private domain and redeploy `web` |
-| WebSocket connections fail in production | `proxy` is missing `WS_URL` or `NEXT_PUBLIC_WS_URL` points somewhere else | Use the proxy route and keep `NEXT_PUBLIC_WS_URL` unset unless you have a reason not to |
+| WebSocket connections fail in production | `proxy` is missing `WS_URL`, or direct web-service access is missing `WS_INTERNAL_URL` | Route browser traffic through same-origin `/ws` and set the server-side upstream URL for the service handling it |
 | WS auth fails | `WS_API_SECRET` does not match between `api` and `ws` | Use the same shared secret in both services |
 | Emails only appear in logs | `RESEND_API_KEY` is unset | Add a real Resend API key and redeploy `api` |
 | Turnstile never validates | Site key and secret key do not match environments | Set the production site key on `web` and the matching secret on `api` |

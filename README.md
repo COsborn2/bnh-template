@@ -159,7 +159,6 @@ These are used by the API locally, and several are also shared by the WebSocket 
 |---|---|---|
 | `NEXT_PUBLIC_APP_NAME` | `MyApp` | Optional |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare test key | Required in deployed environments |
-| `NEXT_PUBLIC_WS_URL` | unset | Optional; useful for direct local WS connections, usually omitted in production because the proxy serves `/ws` |
 
 ### Deployment-only variables
 
@@ -168,6 +167,7 @@ These are not needed for local dev, but they matter in Railway:
 | Variable | Used by | Notes |
 |---|---|---|
 | `API_INTERNAL_URL` | `apps/web` | Required in Railway so Next.js rewrites `/api/*` to the private API service URL |
+| `WS_INTERNAL_URL` | `apps/web` | Lets Next.js rewrite `/ws` to the private WebSocket service URL when web handles the request directly |
 | `RAILWAY_DOCKERFILE_PATH` | each Railway service | Points each Railway service at the correct Dockerfile |
 
 ## Scripts

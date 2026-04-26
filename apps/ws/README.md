@@ -58,10 +58,7 @@ The WS server contains **zero business logic**. All domain logic belongs in the 
 # 1. Start Redis (required — the WS server won't work without it)
 docker compose up -d redis
 
-# 2. Add NEXT_PUBLIC_WS_URL to apps/web/.env.local
-echo 'NEXT_PUBLIC_WS_URL=ws://localhost:3002' >> apps/web/.env.local
-
-# 3. Start all services (from repo root)
+# 2. Start all services (from repo root)
 bun dev
 ```
 
@@ -85,12 +82,6 @@ Start Redis with `docker compose up -d redis` and the server will reconnect auto
 | `WS_EVENTS_URL` | `http://localhost:3001/api/ws/events` | Client message forwarding |
 
 `PORT` is set to `3002` in the dev script (not in `.env`, to avoid conflicting with the API's port).
-
-### Web Client (`apps/web/.env.local`)
-
-| Variable | Value | Purpose |
-|---|---|---|
-| `NEXT_PUBLIC_WS_URL` | `ws://localhost:3002` | Direct WS connection in dev (omit in production — Caddy proxies `/ws`) |
 
 Redis must be running locally via `docker compose up -d redis` before starting the WS server.
 

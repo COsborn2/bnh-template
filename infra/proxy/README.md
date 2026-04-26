@@ -5,6 +5,7 @@ Caddy reverse proxy that routes traffic to the web and API services. Includes a 
 ## How It Works
 
 - `/api/*` routes to the API service
+- `/ws*` routes to the WebSocket service
 - Everything else routes to the web service
 - When an upstream is unreachable (502), `handle_errors` kicks in:
   - **Browser requests** get a branded loading page that auto-refreshes until the service is up
