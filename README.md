@@ -264,9 +264,10 @@ For this to work safely:
 
 1. Enable repository auto-merge.
 2. Protect `main` with required CI status checks.
-3. Add a repository Actions secret named `DEPENDABOT_AUTOMERGE_PAT` using a least-privilege fine-grained PAT scoped to this repository with contents and pull request write access.
+3. Enable **Allow GitHub Actions to create and approve pull requests** in the repository Actions settings.
+4. Add a repository Actions secret named `DEPENDABOT_AUTOMERGE_PAT` using a classic PAT with `repo` scope from the automation account that should appear as the merge actor.
 
-The PAT is used only for the merge step so the resulting merge triggers the normal `push` CI and deploy workflow.
+`GITHUB_TOKEN` is used for the approval so the approval is attributed to `github-actions[bot]`. The PAT is used only for the merge step so the resulting merge triggers the normal `push` CI and deploy workflow. If the PAT belongs to your personal account, the auto-merge will be attributed to you; use a machine user PAT if you want a bot identity instead.
 
 ## License
 
