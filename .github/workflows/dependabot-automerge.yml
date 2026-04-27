@@ -12,13 +12,34 @@ permissions:
 jobs:
   automerge:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Verify Dependabot-only changes
+        run: |
+          non_dependabot_commits="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" \
+            --jq '.[] | select((.author.login // "") != "dependabot[bot]") | "\(.sha) author=\(.author.login // "unknown")"')"
+          if [[ -n "$non_dependabot_commits" ]]; then
+            echo "Dependabot auto-merge refused: PR contains non-Dependabot commits."
+            echo "$non_dependabot_commits"
+            exit 1
+          fi
+
+          disallowed_files="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
+            --jq '.[] | select(.filename | test("(^|/)package\\.json$|^bun\\.lock$") | not) | .filename')"
+          if [[ -n "$disallowed_files" ]]; then
+            echo "Dependabot auto-merge refused: PR changes files outside package manifests and lockfiles."
+            echo "$disallowed_files"
+            exit 1
+          fi
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Approve PR
         if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
@@ -29,7 +50,20 @@ jobs:
 
       - name: Auto-merge minor and patch updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
-        run: gh pr merge --auto --squash "$PR_URL"
+        # Keep the squash body controlled so upstream release notes cannot
+        # inject commit directives like [skip ci] into main.
+        #
+        # Use a non-GITHUB_TOKEN identity so the resulting merge is not attributed
+        # to github-actions[bot]. Otherwise GitHub's anti-recursion rule suppresses
+        # the post-merge push event and the CI/deploy pipeline never fires.
+        run: |
+          gh pr merge --auto --squash "$PR_URL" \
+            --match-head-commit "$PR_HEAD_SHA" \
+            --subject "$PR_TITLE (#$PR_NUMBER)" \
+            --body "Automated Dependabot dependency update. See the pull request for package details."
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_PAT }}

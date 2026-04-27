@@ -8,7 +8,7 @@ This guide describes the recommended Railway deployment for this repo as a multi
 - `web` for the Next.js frontend
 - `ws` for the standalone WebSocket server
 - `proxy` for the public Caddy entrypoint
-- `migrate` for one-off schema migrations
+- `migrate` for applying schema migrations
 - `cron` as an optional scheduled-job service
 
 This guide assumes:
@@ -59,7 +59,7 @@ Recommended exposure:
 | `web` | Persistent service | `apps/web/Dockerfile` | No | `/health` |
 | `ws` | Persistent service | `apps/ws/Dockerfile` | No | `/health` |
 | `proxy` | Persistent service | `infra/proxy/Dockerfile` | Yes | `/robots.txt` |
-| `migrate` | Manual/one-off service | `apps/migrate/Dockerfile` | No | none |
+| `migrate` | Migration service | `apps/migrate/Dockerfile` | No | none |
 | `cron` | Scheduled job | `apps/cron/Dockerfile` | No | none |
 
 `postgres` and `redis` should be added from Railway’s managed database services rather than from this repo.
@@ -221,29 +221,28 @@ Set Railway healthchecks for the long-running services:
 
 `migrate` and `cron` are not long-running web services, so they do not need HTTP healthchecks.
 
-## Step 8: Run the Initial Migration
-
-Before you rely on the app, run the `migrate` service once.
-
-Recommended order:
-
-1. Deploy `migrate`.
-2. Confirm the logs show `Migrations complete.`
-3. Then deploy `api`, `web`, `ws`, and `proxy`.
-
-On later schema changes:
-
-1. Deploy `migrate` first.
-2. Then deploy the services that depend on the new schema.
-
-## Step 9: Deploy the Long-Running Services
+## Step 8: Deploy the Services
 
 Deploy these services after variables are configured:
 
-1. `api`
-2. `web`
-3. `ws`
-4. `proxy`
+1. `migrate`
+2. `api`
+3. `web`
+4. `ws`
+5. `proxy`
+
+`migrate` runs pending migrations and exits after logging `Migrations complete.` The other services remain running and serve traffic through `proxy`.
+
+## Step 9: CI/CD Notes
+
+On pushes to `main`, `.github/workflows/ci.yml`:
+
+1. lints, builds, tests, and runs migrations in CI
+2. builds service images for `web`, `api`, `ws`, `cron`, `migrate`, and `proxy`
+3. publishes those images to GHCR
+4. triggers Railway redeploys for `web`, `api`, `ws`, `proxy`, `migrate`, and optionally `cron`
+
+`migrate` is redeployed when its image changes so new migration code and migration files run immediately with the changed services.
 
 Once `proxy` is healthy, your app should be reachable at:
 
@@ -279,7 +278,7 @@ The starter `apps/cron/src/cleanup.ts` already exits cleanly, which makes it saf
 - Use Railway private domains for all internal service-to-service traffic.
 - Keep `APP_URL` and `BETTER_AUTH_URL` identical in this architecture.
 - Keep browser WebSocket traffic on same-origin `/ws`; use server-side routing env vars for upstream service URLs.
-- Keep `migrate` as a dedicated service so schema changes stay explicit and easy to rerun.
+- Keep `migrate` as a dedicated service so schema changes run through the same deploy pipeline as the app services.
 - Keep secrets in shared variables only when multiple services need them; otherwise prefer service-local variables.
 
 ## Common Mistakes

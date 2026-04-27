@@ -233,7 +233,7 @@ Use [DEPLOYMENT.md](./DEPLOYMENT.md) for the detailed Railway guide. It includes
 - recommended service layout
 - exact `RAILWAY_DOCKERFILE_PATH` values
 - shared vs per-service variables
-- initial migration order
+- migration-service redeploy behavior
 - public domain and private networking setup
 - cron and migration-service guidance
 
@@ -248,11 +248,25 @@ ghcr.io/<owner>/<repo>/<service>:sha-...
 
 The workflow attaches OCI metadata, including `org.opencontainers.image.source`, so packages stay linked back to the repository.
 
+After publishing, the workflow triggers Railway redeploys for changed services, including `migrate` when migration code or files change.
+
 If you want anonymous `docker pull` access, make each package public in GitHub after its first publish:
 
 1. Open the package from the repository owner's `Packages` tab.
 2. Open `Package settings`.
 3. Under `Danger Zone`, choose `Change visibility` and set it to `Public`.
+
+### Dependabot Auto-Merge
+
+The Dependabot workflow approves and enables auto-merge for minor and patch dependency updates after verifying that the PR only contains Dependabot commits and package manifest or lockfile changes.
+
+For this to work safely:
+
+1. Enable repository auto-merge.
+2. Protect `main` with required CI status checks.
+3. Add a repository Actions secret named `DEPENDABOT_AUTOMERGE_PAT` using a least-privilege fine-grained PAT scoped to this repository with contents and pull request write access.
+
+The PAT is used only for the merge step so the resulting merge triggers the normal `push` CI and deploy workflow.
 
 ## License
 
