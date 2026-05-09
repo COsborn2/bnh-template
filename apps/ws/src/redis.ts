@@ -6,7 +6,15 @@ if (!redisUrl) {
   throw new Error("REDIS_URL environment variable is required");
 }
 
-console.log(`[redis] connecting to ${redisUrl} …`);
+function describeRedisTarget(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "configured Redis";
+  }
+}
+
+console.log(`[redis] connecting to ${describeRedisTarget(redisUrl)}`);
 
 const redisOptions = {
   retryStrategy(times: number) {
@@ -22,7 +30,6 @@ const redisOptions = {
   maxRetriesPerRequest: null as unknown as number,
 };
 
-/** Subscriber connection — enters subscribe mode, can only sub/unsub */
 export const subscriber = new Redis(redisUrl!, redisOptions);
 
 let subReady = false;

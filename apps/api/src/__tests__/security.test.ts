@@ -94,9 +94,11 @@ describe("Security features", () => {
       // would cause flaky failures in other test suites.
       // The production auth.ts configures:
       //   - /sign-in/email: 3 requests per 10 seconds
-      //   - /sign-up/email: 5 requests per 60 seconds
-      //   - /two-factor/*: 3 requests per 10 seconds
+      //   - /sign-up/email: 10 requests per hour
+      //   - /request-password-reset: 3 requests per 10 minutes
+      //   - /send-verification-email: 3 requests per 10 minutes
       //   - Global: 100 requests per 60 seconds
+      // apps/api/src/lib/rate-limits.test.ts verifies the custom storage.
     });
   });
 });

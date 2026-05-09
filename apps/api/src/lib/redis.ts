@@ -17,6 +17,13 @@ function getPublisher(): Redis {
   return publisher;
 }
 
+export function getRedisClient(): Redis | null {
+  if (!redisUrl) {
+    return null;
+  }
+  return getPublisher();
+}
+
 export function publishEvent(topic: string, data: unknown): void {
   getPublisher()
     .publish(topic, JSON.stringify(data))

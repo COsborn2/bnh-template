@@ -8,7 +8,7 @@
     "migrate": "bun --env-file=../../.env src/migrate.ts",
     "start": "bun dist/migrate.js",
     "db:generate": "bun --env-file=../../.env node_modules/.bin/drizzle-kit generate",
-    "db:migrate": "bun --env-file=../../.env node_modules/.bin/drizzle-kit migrate",
+    "db:migrate": "bun --env-file=../../.env src/migrate.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

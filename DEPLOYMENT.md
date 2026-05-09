@@ -9,7 +9,7 @@ This guide describes the recommended Railway deployment for this repo as a multi
 - `ws` for the standalone WebSocket server
 - `proxy` for the public Caddy entrypoint
 - `migrate` for applying schema migrations
-- `cron` as an optional scheduled-job service
+- `cron` for scheduled jobs
 
 This guide assumes:
 
@@ -22,10 +22,17 @@ Those service names matter because the variable examples below use Railway refer
 
 ## Railway Features This Guide Uses
 
+This repo follows the template-style deployment pattern:
+
+- each deployable service has its own Dockerfile
+- GitHub Actions builds and publishes GHCR images per service
+- GitHub Actions updates each changed Railway service to the exact GHCR `sha-<commit>` image tag after publish and verifies Railway's configured source image
+- the repo no longer relies on `railway.json` source-build config
+
 This setup relies on current Railway features documented here:
 
 - [Variables and shared/reference variables](https://docs.railway.com/develop/variables)
-- [Dockerfile builds and `RAILWAY_DOCKERFILE_PATH`](https://docs.railway.com/builds/dockerfiles)
+- [Dockerfile builds](https://docs.railway.com/builds/dockerfiles)
 - [Working with public and private domains](https://docs.railway.com/networking/domains/working-with-domains)
 - [Services and scheduled jobs](https://docs.railway.com/develop/services)
 - [Cron jobs overview](https://docs.railway.com/guides/cron-workers-queues)
@@ -87,11 +94,28 @@ Create the following services from the same repo:
 3. `ws`
 4. `proxy`
 5. `migrate`
-6. `cron` if you plan to use scheduled jobs now
+6. `cron`
 
-For each service, set `RAILWAY_DOCKERFILE_PATH` in the service variables:
+Recommended setup:
 
-| Service | `RAILWAY_DOCKERFILE_PATH` |
+1. Configure each Railway service to consume the matching container image published by GitHub Actions.
+2. Use service names that match the workflow and variable references: `api`, `web`, `ws`, `proxy`, `migrate`, and `cron`.
+3. Point each service at the matching GHCR package for the first deployment:
+
+| Service | Image |
+|---|---|
+| `api` | `ghcr.io/<owner>/<repo>/api:latest` |
+| `web` | `ghcr.io/<owner>/<repo>/web:latest` |
+| `ws` | `ghcr.io/<owner>/<repo>/ws:latest` |
+| `proxy` | `ghcr.io/<owner>/<repo>/proxy:latest` |
+| `migrate` | `ghcr.io/<owner>/<repo>/migrate:latest` |
+| `cron` | `ghcr.io/<owner>/<repo>/cron:latest` |
+
+GitHub Actions builds each changed service image first and stores it as a one-day workflow artifact. After the `production` environment gate is approved, the release job loads that artifact, publishes the image to GHCR, and updates Railway from `:latest` to the immutable `:sha-<commit>` tag by committing a scoped Railway environment patch. The script reads the current service config first, then patches `source.image` while carrying forward the current `deploy` block so dashboard-managed deploy settings such as replicas, regions, and restart policy are preserved. It logs Railway's patch workflow ID and fails the job if Railway does not report the expected SHA tag after the patch commit.
+
+If you prefer to let Railway build from the repo instead, the Dockerfiles are still valid and live at:
+
+| Service | Dockerfile path |
 |---|---|
 | `api` | `apps/api/Dockerfile` |
 | `web` | `apps/web/Dockerfile` |
@@ -99,8 +123,6 @@ For each service, set `RAILWAY_DOCKERFILE_PATH` in the service variables:
 | `proxy` | `infra/proxy/Dockerfile` |
 | `migrate` | `apps/migrate/Dockerfile` |
 | `cron` | `apps/cron/Dockerfile` |
-
-Keep the source root at `/`. These Dockerfiles need repo-root build context because they use Turbo prune and copy the full workspace before pruning.
 
 ## Step 4: Generate the Public Domain
 
@@ -126,8 +148,8 @@ These are the variables I recommend configuring as shared because they are truly
 | `APP_URL` | `https://myapp-production.up.railway.app` | Required | `api` | The code falls back to localhost, but production email links will be wrong if you omit it. |
 | `BETTER_AUTH_URL` | `https://myapp-production.up.railway.app` | Required | `api` | Required for auth callbacks and CORS. In this architecture it should match `APP_URL`. |
 | `BETTER_AUTH_SECRET` | `replace-with-a-long-random-secret` | Required | `api` | Generate a long random secret and keep it stable across deployments. |
-| `DATABASE_URL` | `${{ postgres.DATABASE_URL }}` | Required | `api`, `migrate`, optionally `cron` | Reference the managed Postgres service so all DB-backed services use one source of truth. |
-| `REDIS_URL` | `${{ redis.REDIS_URL }}` | Required | `api`, `ws`, optionally `cron` | Required for realtime features. |
+| `DATABASE_URL` | `${{ postgres.DATABASE_URL }}` | Required | `api`, `migrate`, DB-backed `cron` jobs | Reference the managed Postgres service so all DB-backed services use one source of truth. |
+| `REDIS_URL` | `${{ redis.REDIS_URL }}` | Required | `api`, `ws`, Redis-backed `cron` jobs | Required for realtime features. |
 | `WS_API_SECRET` | `replace-with-another-long-random-secret` | Required | `api`, `ws` | Shared secret for internal WS-to-API requests. |
 
 ## Step 6: Configure Per-Service Variables
@@ -165,6 +187,7 @@ Google OAuth note:
 | `WS_INTERNAL_URL` | `http://${{ ws.RAILWAY_PRIVATE_DOMAIN }}:3002` | Recommended | Next.js uses this server-side to rewrite `/ws` if requests hit the web service directly. |
 | `NEXT_PUBLIC_APP_NAME` | `${{ shared.APP_NAME }}` | Optional but recommended | If omitted, the UI falls back to `MyApp`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `0x4AAAAAAA...` | Required | Required for auth forms to work properly in production. |
+| `NEXT_ALLOWED_DEV_ORIGINS` | `https://preview.example.com` | Optional | Comma-separated origins allowed to access the Next.js dev server. Leave unset in production unless you intentionally run dev mode behind a remote origin. |
 
 Important build-time note:
 
@@ -230,19 +253,45 @@ Deploy these services after variables are configured:
 3. `web`
 4. `ws`
 5. `proxy`
+6. `cron`
 
-`migrate` runs pending migrations and exits after logging `Migrations complete.` The other services remain running and serve traffic through `proxy`.
+`migrate` runs pending migrations and exits after logging `Migrations complete.` `cron` runs on its configured Railway schedule. The long-running app services remain running and serve traffic through `proxy`.
 
 ## Step 9: CI/CD Notes
 
-On pushes to `main`, `.github/workflows/ci.yml`:
+On pushes to `main`, `.github/workflows/ci.yml` now:
 
 1. lints, builds, tests, and runs migrations in CI
-2. builds service images for `web`, `api`, `ws`, `cron`, `migrate`, and `proxy`
-3. publishes those images to GHCR
-4. triggers Railway redeploys for `web`, `api`, `ws`, `proxy`, `migrate`, and optionally `cron`
+2. uses Turbo's affected graph to build only changed service images for `web`, `api`, `ws`, `cron`, `migrate`, and `proxy`
+3. smoke-tests each affected image
+4. stores each affected image as a one-day GitHub Actions artifact without publishing it to GHCR
+5. waits for the `production` environment gate before publishing images or reading `RAILWAY_TOKEN`
+6. publishes the approved image artifact to GHCR under `sha-<commit>` and `latest` tags
+7. resolves each changed Railway service ID
+8. uses `scripts/railway-deploy-image.sh` to commit a scoped source-image patch for each changed Railway service
+9. logs the before/after Railway source image values and Railway patch workflow ID
+10. verifies Railway's source image config matches the just-published SHA tag after the patch commit
+11. deletes the short-lived image artifact after a successful release job
 
-`migrate` is redeployed when its image changes so new migration code and migration files run immediately with the changed services.
+`migrate` and `cron` are regular deployable services in the same release matrix as `web`, `api`, `ws`, and `proxy`. When their build inputs are affected, CI publishes their images and patches Railway to the new immutable SHA tag too, so one-off migrations and scheduled jobs stay current with the rest of the deployed stack.
+
+Release jobs use per-service concurrency, so a newer `api` release cancels an older queued or running `api` release while unrelated service releases can continue independently.
+
+Because CI explicitly updates, deploys, and verifies the service source image, Railway image auto-updates are optional in this setup. Keeping them enabled is harmless, but CI no longer depends on Railway's image polling cadence.
+
+To test the Railway deployment resolver locally without changing production, run:
+
+```sh
+SERVICE=web \
+IMAGE=ghcr.io/<owner>/<repo>/web:sha-<commit> \
+COMMIT_SHA=<commit> \
+DRY_RUN=true \
+scripts/railway-deploy-image.sh
+```
+
+In GitHub Actions, store `RAILWAY_TOKEN` as an Environment secret on the `production` environment. The `Release` jobs reference that environment before image publishing and before the deploy script reads the token, so environment protection rules can gate production mutation, GHCR publishing, and Railway project token access without blocking image validation. Do not also keep `RAILWAY_TOKEN` as a repository-level secret, because any future workflow in this repo could read the repo-level copy without the production environment gate.
+
+For local testing, `RAILWAY_TOKEN` must be a Railway project token and is sent with the `Project-Access-Token` API header. If you are logged into the Railway CLI and the repo is linked locally, the script can also resolve your local Railway token and project config.
 
 Once `proxy` is healthy, your app should be reachable at:
 
@@ -262,13 +311,10 @@ Check these in order:
 6. If you use Google OAuth, confirm the callback URL configured in Google matches the proxy domain.
 7. If you use the realtime example, confirm the browser connects to `/ws` through the proxy and that `api`, `ws`, and `redis` all show healthy logs.
 
-## Step 11: Optional Cron Setup
+## Step 11: Cron Setup
 
-If you want scheduled jobs:
-
-1. Enable the `cron` service.
-2. Configure a schedule in Railway using a standard five-field cron expression.
-3. Make sure the process exits when work is finished.
+1. Configure a schedule for the `cron` service in Railway using a standard five-field cron expression.
+2. Make sure the process exits when work is finished.
 
 The starter `apps/cron/src/cleanup.ts` already exits cleanly, which makes it safe to run as a scheduled job.
 
@@ -276,6 +322,7 @@ The starter `apps/cron/src/cleanup.ts` already exits cleanly, which makes it saf
 
 - Expose only `proxy` publicly.
 - Use Railway private domains for all internal service-to-service traffic.
+- Let the proxy forward `X-Real-IP` from trusted Railway hops so API rate limits key off the real client address.
 - Keep `APP_URL` and `BETTER_AUTH_URL` identical in this architecture.
 - Keep browser WebSocket traffic on same-origin `/ws`; use server-side routing env vars for upstream service URLs.
 - Keep `migrate` as a dedicated service so schema changes run through the same deploy pipeline as the app services.
@@ -291,3 +338,4 @@ The starter `apps/cron/src/cleanup.ts` already exits cleanly, which makes it saf
 | WS auth fails | `WS_API_SECRET` does not match between `api` and `ws` | Use the same shared secret in both services |
 | Emails only appear in logs | `RESEND_API_KEY` is unset | Add a real Resend API key and redeploy `api` |
 | Turnstile never validates | Site key and secret key do not match environments | Set the production site key on `web` and the matching secret on `api` |
+| Latest service changes do not appear after CI succeeds | The service release was skipped by affected-service detection, Railway image auto-update polling lagged, or the service could not pull the GHCR image | Confirm the matching `Release <service>` job ran, check the Railway source image values in the CI summary, and make sure Railway can access the `ghcr.io/<owner>/<repo>/<service>:sha-<commit>` image |

@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@app/db": "workspace:*",
-    "better-auth": "latest"
+    "better-auth": "^1.6.9"
   },
   "devDependencies": {
     "@types/bun": "^1.3.13",

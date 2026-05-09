@@ -104,7 +104,7 @@ In Railway, `WS_AUTH_URL` / `WS_AUTHORIZE_URL` / `WS_EVENTS_URL` use the API's *
 
 ## Horizontal Scaling
 
-Scale by increasing `numReplicas` in `railway.json`. Each instance subscribes to Redis independently — clients can land on any instance and receive the same events.
+Scale by increasing replicas for the `ws` Railway service. Each instance subscribes to Redis independently — clients can land on any instance and receive the same events.
 
 ## Message Protocol
 

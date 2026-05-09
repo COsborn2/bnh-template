@@ -18,9 +18,10 @@ RUN bun run --filter=@app/web build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-COPY --from=build /app/apps/web/.next/standalone ./
-COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build /app/apps/web/public ./apps/web/public
+COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
+COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=node:node /app/apps/web/public ./apps/web/public
+RUN mkdir -p ./apps/web/.next/cache && chown -R node:node ./apps/web/.next
 
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000

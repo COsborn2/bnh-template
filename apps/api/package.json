@@ -14,9 +14,10 @@
     "@app/db": "workspace:*",
     "@app/email": "workspace:*",
     "@app/shared": "workspace:*",
-    "better-auth": "latest",
+    "better-auth": "^1.6.9",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.15",
+    "rate-limiter-flexible": "^11.1.0",
     "postgres": "^3.4.9",
     "zod": "^4.3.6",
     "ioredis": "^5.10.1"

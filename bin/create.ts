@@ -109,8 +109,7 @@ const REPLACEMENT_FILES = [
 
   // CI/CD & Deployment
   ".github/workflows/ci.yml",
-  "apps/api/railway.json",
-  "apps/web/railway.json",
+  "scripts/railway-deploy-image.sh",
 
   // Other
   "scripts/check-peer-deps.ts",

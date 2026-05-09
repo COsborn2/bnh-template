@@ -51,7 +51,7 @@ bun create bnh my-app
 - Cloudflare Turnstile on auth flows
 - Have I Been Pwned password checks
 - Disposable email blocking
-- Database-backed rate limiting
+- Redis-backed auth rate limiting with memory fallback
 - Standalone WebSocket service with Redis fan-out
 - Proxy-ready deployment topology for Railway and similar platforms
 - Dockerfiles for each deployable service
@@ -159,6 +159,7 @@ These are used by the API locally, and several are also shared by the WebSocket 
 |---|---|---|
 | `NEXT_PUBLIC_APP_NAME` | `MyApp` | Optional |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare test key | Required in deployed environments |
+| `NEXT_ALLOWED_DEV_ORIGINS` | unset | Optional comma-separated origins allowed to access the Next.js dev server |
 
 ### Deployment-only variables
 
@@ -168,7 +169,9 @@ These are not needed for local dev, but they matter in Railway:
 |---|---|---|
 | `API_INTERNAL_URL` | `apps/web` | Required in Railway so Next.js rewrites `/api/*` to the private API service URL |
 | `WS_INTERNAL_URL` | `apps/web` | Lets Next.js rewrite `/ws` to the private WebSocket service URL when web handles the request directly |
-| `RAILWAY_DOCKERFILE_PATH` | each Railway service | Points each Railway service at the correct Dockerfile |
+| `NEXT_ALLOWED_DEV_ORIGINS` | `apps/web` | Optional comma-separated origins allowed to access the Next.js dev server |
+| `RAILWAY_TOKEN` | GitHub Actions `production` environment | Project token used by CI to pin and deploy changed Railway service images |
+| `DEPENDABOT_AUTOMERGE_PAT` | GitHub Actions | PAT used by Dependabot auto-merge so dependency merges trigger normal push CI |
 
 ## Scripts
 
@@ -231,9 +234,9 @@ UPDATE "user" SET role = 'admin' WHERE email = 'you@example.com';
 Use [DEPLOYMENT.md](./DEPLOYMENT.md) for the detailed Railway guide. It includes:
 
 - recommended service layout
-- exact `RAILWAY_DOCKERFILE_PATH` values
+- matching GHCR image names for each Railway service
 - shared vs per-service variables
-- migration-service redeploy behavior
+- image-pinned deploy behavior for app, migration, and cron services
 - public domain and private networking setup
 - cron and migration-service guidance
 
@@ -248,7 +251,9 @@ ghcr.io/<owner>/<repo>/<service>:sha-...
 
 The workflow attaches OCI metadata, including `org.opencontainers.image.source`, so packages stay linked back to the repository.
 
-After publishing, the workflow triggers Railway redeploys for changed services, including `migrate` when migration code or files change.
+CI builds and smoke-tests only the affected service images, stores them as one-day workflow artifacts, and then the `production` release job publishes the approved artifacts to GHCR under `sha-<commit>` and `latest`.
+
+After publishing, the workflow patches each changed Railway service to the matching immutable `sha-<commit>` image through `scripts/railway-deploy-image.sh`. The script preserves Railway-managed deploy settings, verifies Railway reports the expected source image after the patch, and records the before/after image values in the job summary.
 
 If you want anonymous `docker pull` access, make each package public in GitHub after its first publish:
 
@@ -267,7 +272,7 @@ For this to work safely:
 3. Enable **Allow GitHub Actions to create and approve pull requests** in the repository Actions settings.
 4. Add a repository Actions secret named `DEPENDABOT_AUTOMERGE_PAT` using a classic PAT with `repo` scope from the automation account that should appear as the merge actor.
 
-`GITHUB_TOKEN` is used for the approval so the approval is attributed to `github-actions[bot]`. The PAT is used only for the merge step so the resulting merge triggers the normal `push` CI and deploy workflow. If the PAT belongs to your personal account, the auto-merge will be attributed to you; use a machine user PAT if you want a bot identity instead.
+The PAT is used for approval and merge so the resulting merge triggers the normal `push` CI and deploy workflow. If the PAT belongs to your personal account, the auto-merge will be attributed to you; use a machine user PAT if you want a bot identity instead.
 
 ## License
 

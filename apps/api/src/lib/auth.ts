@@ -16,6 +16,11 @@ import { validateEmailDomain } from "../services/email-validation.js";
 import { eq } from "drizzle-orm";
 import { user as userTable } from "@app/db/schema";
 import { betterAuthBaseUrl } from "./config.js";
+import {
+  betterAuthRateLimitStorage,
+  consumeEmailSendLimit,
+  isRateLimitError,
+} from "./rate-limits.js";
 
 const isTest = process.env.NODE_ENV === "test";
 const isDev = process.env.NODE_ENV !== "production";
@@ -25,6 +30,25 @@ export function buildVerificationUrl(url: string): string {
   const verifyUrl = new URL(url);
   verifyUrl.searchParams.set("callbackURL", "/dashboard");
   return verifyUrl.toString();
+}
+
+async function sendRateLimitedAuthEmail(
+  input: { type: string; to: string },
+  send: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await consumeEmailSendLimit(input.to);
+  } catch (err) {
+    if (isRateLimitError(err)) {
+      console.warn(
+        `[auth] Skipping ${input.type} email to rate-limited target (${err.policy.id})`,
+      );
+      return;
+    }
+    throw err;
+  }
+
+  await send();
 }
 
 export const auth = betterAuth({
@@ -43,7 +67,13 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      void sendPasswordResetEmail(user.email, url);
+      await sendRateLimitedAuthEmail(
+        {
+          type: "password-reset",
+          to: user.email,
+        },
+        () => sendPasswordResetEmail(user.email, url),
+      );
     },
     customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
       ...coreFields,
@@ -62,7 +92,13 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      void sendVerificationEmail(user.email, buildVerificationUrl(url));
+      await sendRateLimitedAuthEmail(
+        {
+          type: "verification",
+          to: user.email,
+        },
+        () => sendVerificationEmail(user.email, buildVerificationUrl(url)),
+      );
     },
   },
 
@@ -81,6 +117,7 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       trustedProviders: ["google"],
+      allowDifferentEmails: false,
     },
   },
 
@@ -97,7 +134,7 @@ export const auth = betterAuth({
 
   advanced: {
     ipAddress: {
-      ipAddressHeaders: ["x-forwarded-for"],
+      ipAddressHeaders: ["x-real-ip", "x-forwarded-for"],
     },
   },
 
@@ -105,10 +142,12 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 100,
-    storage: "database",
+    customStorage: betterAuthRateLimitStorage,
     customRules: {
       "/sign-in/email": { window: 10, max: 3 },
-      "/sign-up/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60 * 60, max: 10 },
+      "/request-password-reset": { window: 10 * 60, max: 3 },
+      "/send-verification-email": { window: 10 * 60, max: 3 },
     },
   },
 

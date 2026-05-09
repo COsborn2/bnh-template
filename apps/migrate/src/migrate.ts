@@ -20,9 +20,29 @@ try {
 
   console.log("Migrations complete.");
 } catch (error) {
+  const message =
+    error instanceof Error ? error.message : "Unknown migration error";
+  const inspected =
+    typeof Bun !== "undefined" ? Bun.inspect(error) : String(error);
+
   console.error("Migration failed:", error);
+
+  if (
+    message.includes("ECONNREFUSED") ||
+    inspected.includes('code: "ECONNREFUSED"') ||
+    inspected.includes("ECONNREFUSED")
+  ) {
+    console.error("");
+    console.error("Postgres is not reachable using DATABASE_URL.");
+    console.error(
+      "For local dev, make sure Docker is running and start the database with:",
+    );
+    console.error("  docker compose up -d postgres");
+    console.error("");
+    console.error(`Current DATABASE_URL: ${connectionString}`);
+  }
+
   process.exit(1);
 } finally {
   await client.end();
-  process.exit(0);
 }
