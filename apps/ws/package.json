@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@app/shared": "workspace:*",
-    "ioredis": "^5.11.0"
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
