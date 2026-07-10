@@ -15,7 +15,7 @@
   "dependencies": {
     "resend": "^6.17.2",
     "@react-email/components": "^1.0.12",
-    "@react-email/render": "^2.0.10"
+    "@react-email/render": "^2.1.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",
