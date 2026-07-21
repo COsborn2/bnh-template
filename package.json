@@ -29,6 +29,6 @@
     "eslint-config-next": "^16.2.10",
     "turbo": "^2.10.5",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.64.0"
+    "typescript-eslint": "^8.65.0"
   }
 }
