@@ -15,7 +15,11 @@ Caddy reverse proxy that routes traffic to the web and API services. Includes a 
 
 - Common scanner noise and direct static utility paths such as `robots.txt` and the proxy-served `favicon.ico` are skipped in access logs.
 - Proxied requests keep their access logs and include a lightweight `route` label so it is easier to distinguish `api`, `ws`, `web`, and startup-fallback traffic in Railway logs.
-- Remaining access log entries are trimmed down by dropping verbose request/response header objects while keeping a compact `client_ip` field derived from `X-Forwarded-For`.
+- Remaining access log entries are trimmed down by dropping verbose request/response header objects while keeping a compact `client_ip` field (Caddy's resolved real client IP) plus the raw `x_forwarded_for` / `x_real_ip` header values for debugging the trust chain.
+
+## Client IP Trust
+
+The global `servers` block trusts Railway's private/CGNAT hop (`trusted_proxies static private_ranges 100.64.0.0/10`) and reads `client_ip_headers X-Real-IP X-Forwarded-For`, so Caddy's `{client_ip}` placeholder resolves to the real end-user IP instead of the internal proxy address. Every `reverse_proxy` block then overwrites `X-Real-IP` and `X-Forwarded-For` with that resolved value, so upstreams (better-auth IP records, per-IP rate limiting) receive exactly one trustworthy, non-spoofable client IP.
 
 ## Theme Colors
 

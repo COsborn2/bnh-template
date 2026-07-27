@@ -1,0 +1,126 @@
+name: Redeploy All Services
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  redeploy:
+    name: Rebuild and Redeploy Everything
+    runs-on: ubuntu-latest
+    env:
+      # Unique per run so the Railway patch always differs from the current
+      # config — a plain sha tag would no-op if that sha is already deployed.
+      REDEPLOY_TAG: sha-${{ github.sha }}-redeploy-${{ github.run_id }}-${{ github.run_attempt }}
+    environment:
+      name: production
+      deployment: true
+    permissions:
+      contents: read
+      packages: write
+    # Shares the concurrency group with the CI railway-deploy job so a manual
+    # redeploy never commits a Railway patch concurrently with a CI deploy.
+    # The group is deliberately ref-independent: there is only one Railway
+    # environment, so the exclusion must hold even when this workflow is
+    # dispatched from a tag or non-main branch.
+    concurrency:
+      group: railway-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push all service images
+        env:
+          NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME || 'MyApp' }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test' }}
+          ENABLE_CRON_REDEPLOY: ${{ vars.RAILWAY_ENABLE_CRON_REDEPLOY }}
+        run: |
+          set -euo pipefail
+
+          services=(
+            "web|apps/web/Dockerfile|."
+            "api|apps/api/Dockerfile|."
+            "ws|apps/ws/Dockerfile|."
+            "migrate|apps/migrate/Dockerfile|."
+            "proxy|infra/proxy/Dockerfile|infra/proxy"
+          )
+
+          # The cron service is optional on Railway; rebuild and redeploy it
+          # only when the repository variable RAILWAY_ENABLE_CRON_REDEPLOY is
+          # set to "true".
+          if [ "${ENABLE_CRON_REDEPLOY}" = "true" ]; then
+            services+=("cron|apps/cron/Dockerfile|.")
+          else
+            echo "Cron service redeploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
+          fi
+
+          image_prefix="$(printf '%s' "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')"
+          service_names=()
+
+          for entry in "${services[@]}"; do
+            IFS='|' read -r service dockerfile context <<<"$entry"
+            service_names+=("$service")
+            image="${image_prefix}/${service}"
+
+            build_args=()
+            if [ "$service" = "web" ]; then
+              build_args+=(
+                --build-arg "NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME}"
+                --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}"
+              )
+            fi
+
+            echo "::group::Build and push ${service}"
+            docker buildx build \
+              --file "$dockerfile" \
+              --tag "${image}:sha-${GITHUB_SHA}" \
+              --tag "${image}:${REDEPLOY_TAG}" \
+              --tag "${image}:latest" \
+              --push \
+              "${build_args[@]}" \
+              "$context"
+            echo "::endgroup::"
+          done
+
+          # Single source of truth: deploy exactly the services built above.
+          echo "SERVICES=${service_names[*]}" >> "$GITHUB_ENV"
+
+      - name: Deploy all images in one Railway patch
+        id: railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES: ${{ env.SERVICES }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          IMAGE_TAG: ${{ env.REDEPLOY_TAG }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          scripts/railway-deploy-image.sh
+
+      - name: Summarize release
+        run: |
+          {
+            echo "### Redeployed all services to Railway"
+            echo ""
+            echo "- Services: \`${{ steps.railway.outputs.services }}\`"
+            echo "- Images: \`${{ steps.railway.outputs.images }}\`"
+            echo "- Previous images: \`${{ steps.railway.outputs.before_images }}\`"
+            echo "- Environment ID: \`${{ steps.railway.outputs.environment_id }}\`"
+            echo "- Patch workflow ID: \`${{ steps.railway.outputs.patch_workflow_id }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

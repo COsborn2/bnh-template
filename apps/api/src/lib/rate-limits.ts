@@ -1,0 +1,489 @@
+import { createHash } from "crypto";
+import type { BetterAuthRateLimitStorage, RateLimit } from "better-auth";
+import type Redis from "ioredis";
+import {
+  RateLimiterMemory,
+  RateLimiterRedis,
+  type RateLimiterAbstract,
+  type RateLimiterRes,
+} from "rate-limiter-flexible";
+import { getRedisClient } from "./redis.js";
+
+/**
+ * Centralized, Redis-backed rate limiting.
+ *
+ * Policies are declared once in RATE_LIMIT_POLICIES and enforced through the
+ * consume/check/refund primitives below. Limits are shared across instances
+ * via Redis when REDIS_URL is set; without it (or during a Redis outage) each
+ * instance degrades to per-process in-memory limiting instead of failing
+ * requests. Keys that contain PII (emails, IPs) are SHA-256 hashed before
+ * they are used as Redis keys.
+ */
+
+export type RateLimitDimension = "email" | "user" | "ip";
+
+export interface RateLimitPolicy {
+  id: string;
+  points: number;
+  durationSeconds: number;
+  dimensions: readonly RateLimitDimension[];
+  description: string;
+}
+
+const DAY = 24 * 60 * 60;
+const HOUR = 60 * 60;
+const REDIS_PREFIX = "app:rl";
+const BETTER_AUTH_RATE_LIMIT_TTL_SECONDS = DAY;
+const BETTER_AUTH_RATE_LIMIT_PREFIX = `${REDIS_PREFIX}:better-auth`;
+const REDIS_COMMAND_TIMEOUT_MS = 500;
+
+function isTruthyEnv(value: string | undefined): boolean {
+  return /^(1|true|yes|on)$/i.test(value?.trim() ?? "");
+}
+
+/**
+ * Dev/test-only escape hatch: set RATE_LIMITS_DISABLED=true to bypass all
+ * application rate limits. Hard-disabled in production so a leaked env var
+ * can never turn limits off where it matters.
+ */
+export function areRateLimitsBypassed(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  return isTruthyEnv(process.env.RATE_LIMITS_DISABLED);
+}
+
+export const RATE_LIMIT_POLICIES = [
+  {
+    id: "email-send-target-hour",
+    points: 3,
+    durationSeconds: HOUR,
+    dimensions: ["email"],
+    description: "Outbound auth emails per target email per hour",
+  },
+  {
+    id: "email-send-target-day",
+    points: 5,
+    durationSeconds: DAY,
+    dimensions: ["email"],
+    description: "Outbound auth emails per target email per day",
+  },
+  {
+    // Example policy for capping abuse on public endpoints. Pair it with the
+    // ipRateLimit middleware factory (middleware/ip-rate-limit.ts) and add
+    // one policy per endpoint family as your API grows.
+    id: "public-endpoint-ip-hour",
+    points: 120,
+    durationSeconds: HOUR,
+    dimensions: ["ip"],
+    description: "Public endpoint requests per IP per hour",
+  },
+] as const satisfies readonly RateLimitPolicy[];
+
+const policiesById: Map<string, RateLimitPolicy> = new Map(
+  RATE_LIMIT_POLICIES.map((policy) => [policy.id, policy]),
+);
+
+interface LimiterEntry {
+  limiter: RateLimiterAbstract;
+  memoryLimiter: RateLimiterMemory;
+  redis: Redis | null;
+}
+
+let limiterEntries = new Map<string, LimiterEntry>();
+let betterAuthRateLimitMemory = new Map<
+  string,
+  { value: RateLimit; expiresAt: number }
+>();
+let betterAuthConsumeMemory = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
+
+export class RateLimitError extends Error {
+  readonly status = 429;
+
+  constructor(
+    readonly policy: RateLimitPolicy,
+    readonly key: string,
+    readonly result: RateLimiterRes,
+  ) {
+    super(`${policy.description} exceeded`);
+    this.name = "RateLimitError";
+  }
+}
+
+function getRateLimitPolicy(policyId: string): RateLimitPolicy {
+  const policy = policiesById.get(policyId);
+  if (!policy) throw new Error(`Unknown rate-limit policy: ${policyId}`);
+  return policy;
+}
+
+function policyKeyPrefix(policyId: string): string {
+  return `${REDIS_PREFIX}:${policyId}`;
+}
+
+function getLimiterEntry(policy: RateLimitPolicy): LimiterEntry {
+  const existing = limiterEntries.get(policy.id);
+  if (existing) return existing;
+
+  const options = {
+    keyPrefix: policyKeyPrefix(policy.id),
+    points: policy.points,
+    duration: policy.durationSeconds,
+  };
+  const memoryLimiter = new RateLimiterMemory(options);
+  const redis = getRedisClient();
+
+  if (!redis) {
+    const entry = { limiter: memoryLimiter, memoryLimiter, redis: null };
+    limiterEntries.set(policy.id, entry);
+    return entry;
+  }
+
+  const limiter = new RateLimiterRedis({
+    ...options,
+    storeClient: redis,
+    insuranceLimiter: memoryLimiter,
+    rejectIfRedisNotReady: true,
+  });
+  const entry = { limiter, memoryLimiter, redis };
+  limiterEntries.set(policy.id, entry);
+  return entry;
+}
+
+function isRateLimiterResponse(value: unknown): value is RateLimiterRes {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "msBeforeNext" in value &&
+    "remainingPoints" in value &&
+    "consumedPoints" in value
+  );
+}
+
+export function isRateLimitError(err: unknown): err is RateLimitError {
+  return err instanceof RateLimitError;
+}
+
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function hashRateLimitValue(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function makeRateLimitKey(
+  dimension: RateLimitDimension,
+  value: string,
+): string {
+  switch (dimension) {
+    case "email":
+      return `email:${hashRateLimitValue(normalizeEmail(value))}`;
+    case "user":
+      return `user:${value.trim()}`;
+    case "ip":
+      return `ip:${hashRateLimitValue(value.trim())}`;
+  }
+}
+
+function betterAuthRateLimitKey(key: string): string {
+  return `${BETTER_AUTH_RATE_LIMIT_PREFIX}:${key}`;
+}
+
+/**
+ * Dedicated counter keyspace for the atomic `consume` path, separate from the
+ * JSON records the legacy `get`/`set` contract stores under
+ * betterAuthRateLimitKey.
+ */
+function betterAuthConsumeKey(key: string): string {
+  return `${BETTER_AUTH_RATE_LIMIT_PREFIX}:c:${key}`;
+}
+
+/**
+ * Fixed-window counter, executed atomically server-side: INCR the counter,
+ * start the window TTL when the counter is new (and self-heal a missing TTL,
+ * e.g. after a partial failure), and report the count plus remaining window.
+ * Returns [count, pttlMillis].
+ */
+const BETTER_AUTH_CONSUME_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1]) * 1000
+end
+return {count, ttl}
+`;
+
+function isBetterAuthRateLimit(value: unknown): value is RateLimit {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "key" in value &&
+    "count" in value &&
+    "lastRequest" in value &&
+    typeof value.key === "string" &&
+    typeof value.count === "number" &&
+    typeof value.lastRequest === "number"
+  );
+}
+
+function readBetterAuthMemory(key: string): RateLimit | null {
+  const entry = betterAuthRateLimitMemory.get(key);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    betterAuthRateLimitMemory.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function writeBetterAuthMemory(key: string, value: RateLimit): void {
+  betterAuthRateLimitMemory.set(key, {
+    value,
+    expiresAt: Date.now() + BETTER_AUTH_RATE_LIMIT_TTL_SECONDS * 1000,
+  });
+}
+
+interface ConsumeRule {
+  window: number;
+  max: number;
+}
+
+interface ConsumeResult {
+  allowed: boolean;
+  retryAfter: number | null;
+}
+
+/**
+ * In-process fixed-window counter mirroring the Redis consume script, used
+ * when Redis is unset or a command fails/times out. Synchronous, so it is
+ * strict even under concurrent requests within this instance.
+ */
+function consumeBetterAuthMemory(key: string, rule: ConsumeRule): ConsumeResult {
+  const now = Date.now();
+  const entry = betterAuthConsumeMemory.get(key);
+  if (!entry || now >= entry.resetAt) {
+    betterAuthConsumeMemory.set(key, {
+      count: 1,
+      resetAt: now + rule.window * 1000,
+    });
+    return { allowed: true, retryAfter: null };
+  }
+  entry.count += 1;
+  if (entry.count <= rule.max) {
+    return { allowed: true, retryAfter: null };
+  }
+  return {
+    allowed: false,
+    retryAfter: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+  };
+}
+
+function withRedisTimeout<T>(operation: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Redis command timed out"));
+    }, REDIS_COMMAND_TIMEOUT_MS);
+
+    operation
+      .then((result) => {
+        clearTimeout(timeout);
+        resolve(result);
+      })
+      .catch((err: unknown) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
+/**
+ * Redis-backed storage for better-auth's built-in rate limiter, replacing
+ * `storage: "database"` (which wrote a Postgres row per counted auth
+ * request). Falls back to an in-process map when Redis is unset or a command
+ * fails/times out, so auth keeps working through a Redis outage.
+ *
+ * `consume` is the path better-auth actually uses (an atomic single-step
+ * check-and-increment, strict under concurrent bursts); `get`/`set` are kept
+ * for backwards compatibility with the storage contract.
+ */
+export const betterAuthRateLimitStorage: BetterAuthRateLimitStorage = {
+  async get(key) {
+    const redis = getRedisClient();
+    if (!redis) return readBetterAuthMemory(key);
+
+    try {
+      const raw = await withRedisTimeout(redis.get(betterAuthRateLimitKey(key)));
+      if (!raw) return null;
+      const parsed: unknown = JSON.parse(raw);
+      return isBetterAuthRateLimit(parsed) ? parsed : null;
+    } catch (err) {
+      console.error("[rate-limit] Better Auth Redis get failed:", err);
+      return readBetterAuthMemory(key);
+    }
+  },
+  async set(key, value) {
+    const redis = getRedisClient();
+    if (!redis) {
+      writeBetterAuthMemory(key, value);
+      return;
+    }
+
+    try {
+      await withRedisTimeout(
+        redis.set(
+          betterAuthRateLimitKey(key),
+          JSON.stringify(value),
+          "EX",
+          BETTER_AUTH_RATE_LIMIT_TTL_SECONDS,
+        ),
+      );
+    } catch (err) {
+      console.error("[rate-limit] Better Auth Redis set failed:", err);
+      writeBetterAuthMemory(key, value);
+    }
+  },
+  async consume(key, rule) {
+    const redis = getRedisClient();
+    if (!redis) return consumeBetterAuthMemory(key, rule);
+
+    try {
+      const raw: unknown = await withRedisTimeout(
+        redis.eval(
+          BETTER_AUTH_CONSUME_SCRIPT,
+          1,
+          betterAuthConsumeKey(key),
+          String(rule.window),
+        ),
+      );
+      if (!Array.isArray(raw) || raw.length < 2) {
+        throw new Error("Unexpected consume script result");
+      }
+      const count = Number(raw[0]);
+      const ttlMs = Number(raw[1]);
+      if (!Number.isFinite(count) || !Number.isFinite(ttlMs)) {
+        throw new Error("Unexpected consume script result");
+      }
+      if (count <= rule.max) {
+        return { allowed: true, retryAfter: null };
+      }
+      return {
+        allowed: false,
+        retryAfter: Math.max(
+          1,
+          Math.ceil((ttlMs > 0 ? ttlMs : rule.window * 1000) / 1000),
+        ),
+      };
+    } catch (err) {
+      console.error("[rate-limit] Better Auth Redis consume failed:", err);
+      return consumeBetterAuthMemory(key, rule);
+    }
+  },
+};
+
+async function consumeRateLimit(policyId: string, key: string): Promise<void> {
+  if (areRateLimitsBypassed()) return;
+
+  const policy = getRateLimitPolicy(policyId);
+  const entry = getLimiterEntry(policy);
+
+  try {
+    await entry.limiter.consume(key);
+  } catch (err) {
+    if (isRateLimiterResponse(err)) {
+      // A rejected consume still increments the counter; refund it so
+      // hammering a limited endpoint can't push the retry time out forever.
+      if (err.consumedPoints > policy.points) {
+        try {
+          await entry.limiter.reward(key);
+        } catch (refundErr) {
+          console.error(
+            "[rate-limit] Failed to refund rejected consume:",
+            refundErr,
+          );
+        }
+      }
+      throw new RateLimitError(policy, key, err);
+    }
+    throw err;
+  }
+}
+
+async function checkRateLimit(policyId: string, key: string): Promise<void> {
+  if (areRateLimitsBypassed()) return;
+
+  const policy = getRateLimitPolicy(policyId);
+  const entry = getLimiterEntry(policy);
+  const result = await entry.limiter.get(key);
+
+  if (
+    result &&
+    result.msBeforeNext > 0 &&
+    result.consumedPoints >= policy.points
+  ) {
+    throw new RateLimitError(policy, key, result);
+  }
+}
+
+async function refundRateLimit(policyId: string, key: string): Promise<void> {
+  if (areRateLimitsBypassed()) return;
+
+  const policy = getRateLimitPolicy(policyId);
+  const entry = getLimiterEntry(policy);
+  await entry.limiter.reward(key);
+}
+
+/**
+ * Per-recipient cap on outbound auth emails (verification, password reset,
+ * change-email, delete-account). Dual-window: consume the day bucket first,
+ * then the hour bucket, refunding the day bucket if the hour bucket rejects
+ * so a burst doesn't double-count against the day quota.
+ */
+export async function consumeEmailSendLimit(to: string): Promise<void> {
+  const key = makeRateLimitKey("email", to);
+  await checkRateLimit("email-send-target-day", key);
+  await checkRateLimit("email-send-target-hour", key);
+
+  await consumeRateLimit("email-send-target-day", key);
+  try {
+    await consumeRateLimit("email-send-target-hour", key);
+  } catch (err) {
+    try {
+      await refundRateLimit("email-send-target-day", key);
+    } catch (refundErr) {
+      console.error(
+        "[rate-limit] Failed to refund daily email quota:",
+        refundErr,
+      );
+    }
+    throw err;
+  }
+}
+
+/**
+ * Example per-IP consumer for public endpoints. Add one exported consumer
+ * per policy so call sites never handle raw policy ids or key building.
+ */
+export async function consumePublicEndpointLimit(ip: string): Promise<void> {
+  const key = makeRateLimitKey("ip", ip);
+  await consumeRateLimit("public-endpoint-ip-hour", key);
+}
+
+export function formatRateLimitReason(error: RateLimitError): string {
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil(error.result.msBeforeNext / 1000),
+  );
+  const consumed = Math.min(error.result.consumedPoints, error.policy.points);
+  return `${error.policy.description} exceeded (${consumed}/${error.policy.points}). Try again in ${retryAfterSeconds} seconds.`;
+}
+
+export function resetRateLimitersForTests(): void {
+  limiterEntries = new Map();
+  betterAuthRateLimitMemory = new Map();
+  betterAuthConsumeMemory = new Map();
+}

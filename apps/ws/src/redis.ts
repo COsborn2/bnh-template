@@ -6,7 +6,16 @@ if (!redisUrl) {
   throw new Error("REDIS_URL environment variable is required");
 }
 
-console.log(`[redis] connecting to ${redisUrl} …`);
+/** Host only — the full URL carries credentials and must stay out of logs. */
+function describeRedisTarget(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "configured Redis";
+  }
+}
+
+console.log(`[redis] connecting to ${describeRedisTarget(redisUrl)}`);
 
 const redisOptions = {
   retryStrategy(times: number) {
@@ -25,6 +34,10 @@ const redisOptions = {
 /** Subscriber connection — enters subscribe mode, can only sub/unsub */
 export const subscriber = new Redis(redisUrl!, redisOptions);
 
+// A subscriber connection can only run pub/sub commands, so presence state
+// (hashes) and outbound publishes need their own connection.
+export const publisher = new Redis(redisUrl!, redisOptions);
+
 let subReady = false;
 
 subscriber.on("ready", () => {
@@ -35,6 +48,7 @@ subscriber.on("ready", () => {
 });
 
 subscriber.on("error", (err: Error) => console.error("[redis] subscriber error:", err.message));
+publisher.on("error", (err: Error) => console.error("[redis] publisher error:", err.message));
 
 export function subscribeToTopic(topic: string): void {
   subscriber.subscribe(topic).catch((err: Error) => {

@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import type { ServerMessage } from "@app/shared";
+import type { PresenceUser, ServerMessage } from "@app/shared";
+
+export type WebSocketStatus =
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "offline";
 
 interface UseWebSocketOptions {
   /** Topics to subscribe to on connect */
@@ -12,10 +18,25 @@ interface UseWebSocketOptions {
   enabled?: boolean;
   /** Called when an event is received from a subscribed topic */
   onEvent?: (topic: string, data: unknown) => void;
+  /** Called with the merged online-user list for a subscribed topic */
+  onPresence?: (topic: string, users: PresenceUser[]) => void;
   /** Called when an error message is received from the server */
   onError?: (code: string, message: string) => void;
   /** Called when connection state changes */
   onConnectionChange?: (connected: boolean) => void;
+  /**
+   * Called after the socket re-opens following a drop (not on first connect).
+   * Subscriptions are re-delivered automatically, but the socket has no
+   * replay buffer — refetch your data here to cover anything broadcast while
+   * disconnected.
+   */
+  onReconnect?: () => void;
+  /**
+   * Called when the server intentionally closed the socket with an
+   * application close code (4000-4999, e.g. 4001 = disconnected by server).
+   * The hook does NOT auto-reconnect after these.
+   */
+  onServerClose?: (code: number, reason: string) => void;
 }
 
 const MAX_RECONNECT_DELAY = 30_000;
@@ -26,18 +47,29 @@ export function useWebSocket({
   url,
   enabled = true,
   onEvent,
+  onPresence,
   onError,
   onConnectionChange,
+  onReconnect,
+  onServerClose,
 }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
   const shouldReconnectRef = useRef(enabled);
-  const [connected, setConnected] = useState(false);
+  // Socket lifecycle, driven only from socket callbacks; the render-facing
+  // `status` is derived from it plus `enabled` ("idle" = a connect attempt is
+  // pending or in flight, "stopped" = the server ended the socket on purpose).
+  const [socketState, setSocketState] = useState<
+    "idle" | "connected" | "reconnecting" | "stopped"
+  >("idle");
 
   const onEventRef = useRef(onEvent);
+  const onPresenceRef = useRef(onPresence);
   const onErrorRef = useRef(onError);
   const onConnectionChangeRef = useRef(onConnectionChange);
+  const onReconnectRef = useRef(onReconnect);
+  const onServerCloseRef = useRef(onServerClose);
   const topicsRef = useRef(topics);
   const prevTopicsRef = useRef<string[]>([]);
   const connectRef = useRef<() => void>(null);
@@ -45,8 +77,11 @@ export function useWebSocket({
 
   useEffect(() => {
     onEventRef.current = onEvent;
+    onPresenceRef.current = onPresence;
     onErrorRef.current = onError;
     onConnectionChangeRef.current = onConnectionChange;
+    onReconnectRef.current = onReconnect;
+    onServerCloseRef.current = onServerClose;
     topicsRef.current = topics;
     urlRef.current = url;
     shouldReconnectRef.current = enabled;
@@ -68,8 +103,9 @@ export function useWebSocket({
     ws.onopen = () => {
       if (wsRef.current !== ws) return;
 
+      const wasReconnect = reconnectAttempt.current > 0;
       reconnectAttempt.current = 0;
-      setConnected(true);
+      setSocketState("connected");
       onConnectionChangeRef.current?.(true);
 
       // Subscribe to all topics and track them for diffing
@@ -77,6 +113,12 @@ export function useWebSocket({
         ws.send(JSON.stringify({ type: "subscribe", topic }));
       }
       prevTopicsRef.current = [...topicsRef.current];
+
+      // The socket has no replay buffer — anything broadcast while we were
+      // disconnected was missed, so let consumers resync their data.
+      if (wasReconnect) {
+        onReconnectRef.current?.();
+      }
     };
 
     ws.onmessage = (event) => {
@@ -88,6 +130,9 @@ export function useWebSocket({
           case "event":
             onEventRef.current?.(msg.topic, msg.data);
             break;
+          case "presence":
+            onPresenceRef.current?.(msg.topic, msg.users);
+            break;
           case "error":
             onErrorRef.current?.(msg.code, msg.message);
             break;
@@ -97,23 +142,36 @@ export function useWebSocket({
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       if (wsRef.current !== ws) return;
 
       wsRef.current = null;
-      setConnected(false);
       onConnectionChangeRef.current?.(false);
 
-      if (!shouldReconnectRef.current) {
+      // Application close codes are deliberate server decisions (kicked,
+      // access revoked, session ended) — don't fight them by reconnecting.
+      if (event.code >= 4000 && event.code <= 4999) {
         reconnectAttempt.current = 0;
+        setSocketState("stopped");
+        onServerCloseRef.current?.(event.code, event.reason);
         return;
       }
 
-      // Exponential backoff reconnect
-      const delay = Math.min(
+      if (!shouldReconnectRef.current) {
+        reconnectAttempt.current = 0;
+        setSocketState("idle");
+        return;
+      }
+
+      setSocketState("reconnecting");
+      // Exponential backoff with jitter (50–100% of the computed delay).
+      // Without the jitter, a server redeploy reconnects — and then resyncs —
+      // every client in lockstep.
+      const base = Math.min(
         BASE_RECONNECT_DELAY * 2 ** reconnectAttempt.current,
         MAX_RECONNECT_DELAY
       );
+      const delay = base / 2 + Math.random() * (base / 2);
       reconnectAttempt.current++;
       reconnectTimer.current = setTimeout(() => connectRef.current?.(), delay);
     };
@@ -175,8 +233,26 @@ export function useWebSocket({
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
+      // The closed socket's onclose is ignored (its ref was just cleared), so
+      // reset here — otherwise a deliberate replacement (url change, enabled
+      // toggle) keeps reporting the old socket's "connected" while the new
+      // one is still CONNECTING, and sends during that window silently drop.
+      setSocketState("idle");
     };
   }, [connect, enabled, url]);
 
-  return { connected, sendMessage };
+  // Derived rather than set from the effect: while disabled the socket is
+  // closed without its onclose handler running (the ref was already cleared),
+  // so the last callback-driven state can be stale.
+  const status: WebSocketStatus = !enabled
+    ? "offline"
+    : socketState === "connected"
+      ? "connected"
+      : socketState === "reconnecting"
+        ? "reconnecting"
+        : socketState === "stopped"
+          ? "offline"
+          : "connecting";
+
+  return { connected: status === "connected", status, sendMessage };
 }

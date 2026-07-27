@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build src/cleanup.ts --outdir dist --target bun --production",
+    "build": "bun build src/cleanup.ts --outdir dist --target bun --production --sourcemap=linked",
     "cleanup": "bun src/cleanup.ts",
     "start": "bun dist/cleanup.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
-    "@app/db": "workspace:*"
+    "@app/db": "workspace:*",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

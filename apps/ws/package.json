@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "PORT=3002 bun --env-file=../../.env --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun --production",
+    "build": "bun build src/index.ts --outdir dist --target bun --production --sourcemap=linked",
     "start": "bun dist/index.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
+    "@app/otel": "workspace:*",
     "@app/shared": "workspace:*",
     "ioredis": "^5.11.1"
   },

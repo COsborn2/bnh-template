@@ -11,10 +11,11 @@ import {
   saveGuestProfile,
   type GuestProfile,
 } from "@/lib/chat-identity";
-import { useWebSocket } from "@/hooks/use-websocket";
+import { useWebSocket, type WebSocketStatus } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import type { PresenceUser } from "@app/shared";
 
 interface ChatMessage {
   userId: string;
@@ -26,11 +27,26 @@ interface ChatMessage {
 
 const TOPIC = "chat:general";
 
+const STATUS_LABEL: Record<WebSocketStatus, string> = {
+  connecting: "Connecting...",
+  connected: "Connected",
+  reconnecting: "Reconnecting...",
+  offline: "Offline",
+};
+
+const STATUS_CLASS: Record<WebSocketStatus, string> = {
+  connecting: "text-accent-amber",
+  connected: "text-accent-green",
+  reconnecting: "text-accent-amber",
+  offline: "text-accent-rose",
+};
+
 export function ChatPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const [guestProfile, setGuestProfile] = useState<GuestProfile | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +74,7 @@ export function ChatPage() {
         }
       : null;
 
-  const { connected, sendMessage } = useWebSocket({
+  const { connected, status, sendMessage } = useWebSocket({
     topics: [TOPIC],
     url: currentIdentity?.isGuest
       ? buildChatWebSocketUrl(guestProfile)
@@ -71,6 +87,9 @@ export function ChatPage() {
       if (msg.type === "chat:message") {
         setMessages((prev) => [...prev, msg]);
       }
+    },
+    onPresence: (_topic, users) => {
+      setOnlineUsers(users);
     },
   });
 
@@ -108,13 +127,18 @@ export function ChatPage() {
             Lobby Chat
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            {connected ? (
-              <span className="text-accent-green">Connected</span>
-            ) : (
-              <span className="text-accent-rose">Reconnecting...</span>
-            )}
+            <span className={STATUS_CLASS[status]}>{STATUS_LABEL[status]}</span>
             {" · "}#{TOPIC.split(":")[1]}
           </p>
+          {onlineUsers.length > 0 && (
+            <p className="mt-1 text-sm text-text-muted">
+              {onlineUsers.length} online
+              {" · "}
+              {onlineUsers
+                .map((u) => (u.isGuest ? `${u.name} (guest)` : u.name))
+                .join(", ")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

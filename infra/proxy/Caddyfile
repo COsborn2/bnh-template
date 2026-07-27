@@ -1,5 +1,13 @@
 {
 	auto_https off
+
+	servers {
+		# Railway's edge reaches this service through private/shared networking.
+		# Trust that hop so {client_ip} resolves from forwarded client IP
+		# instead of the internal Railway/Caddy connection address.
+		trusted_proxies static private_ranges 100.64.0.0/10
+		client_ip_headers X-Real-IP X-Forwarded-For
+	}
 }
 
 :{$PORT} {
@@ -15,7 +23,9 @@
 		}
 	}
 
-	log_append client_ip {http.request.header.X-Forwarded-For}
+	log_append client_ip {client_ip}
+	log_append x_forwarded_for {http.request.header.X-Forwarded-For}
+	log_append x_real_ip {http.request.header.X-Real-IP}
 
 	# Block common bot/scanner paths — respond without waking upstream
 	@blocked path /wp-admin/* /wp-login* /wp-content/* /wp-includes/* /wp-config.php /wp-cron.php /xmlrpc.php \
@@ -46,21 +56,30 @@ Allow: /
 
 	handle /api/* {
 		log_append route "api"
-		reverse_proxy {$API_URL}
+		reverse_proxy {$API_URL} {
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-For {client_ip}
+		}
 		log_append upstream_host {rp.upstream.host}
 		log_append upstream_duration_ms {rp.upstream.duration_ms}
 	}
 
 	handle /ws* {
 		log_append route "ws"
-		reverse_proxy {$WS_URL}
+		reverse_proxy {$WS_URL} {
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-For {client_ip}
+		}
 		log_append upstream_host {rp.upstream.host}
 		log_append upstream_duration_ms {rp.upstream.duration_ms}
 	}
 
 	handle {
 		log_append route "web"
-		reverse_proxy {$WEB_URL}
+		reverse_proxy {$WEB_URL} {
+			header_up X-Real-IP {client_ip}
+			header_up X-Forwarded-For {client_ip}
+		}
 		log_append upstream_host {rp.upstream.host}
 		log_append upstream_duration_ms {rp.upstream.duration_ms}
 	}

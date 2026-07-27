@@ -85,10 +85,12 @@ const REPLACEMENT_FILES = [
   "package.json",
   "apps/api/package.json",
   "apps/web/package.json",
+  "apps/ws/package.json",
   "apps/cron/package.json",
   "apps/migrate/package.json",
   "packages/db/package.json",
   "packages/email/package.json",
+  "packages/otel/package.json",
   "packages/shared/package.json",
   "packages/theme/package.json",
   ".env.example",
@@ -97,11 +99,35 @@ const REPLACEMENT_FILES = [
   "docker-compose.yml",
 
   // Application Code
+  // Every file that references an @app/* package name (imports, turbo
+  // prune/--filter targets, etc.) must be listed here, or the scaffolded
+  // project keeps a dangling @app/ reference after the packages are renamed
+  // to the new scope.
   "apps/api/src/lib/auth.ts",
+  "apps/api/src/lib/logger.ts",
+  "apps/api/src/lib/redis.ts",
+  "apps/api/src/middleware/trace-http.ts",
+  "apps/api/src/instrumentation.ts",
+  "apps/api/src/test-preload.ts",
+  "apps/api/src/db/seed.ts",
+  "apps/cron/src/cleanup-predicates.ts",
+  "apps/cron/src/cleanup-predicates.test.ts",
+  "apps/cron/src/retention.ts",
   "apps/web/src/app/layout.tsx",
   "apps/web/src/app/auth/layout.tsx",
   "apps/web/src/app/page.tsx",
   "apps/web/src/app/manifest.json",
+  "apps/web/src/components/chat/chat-page.tsx",
+  "apps/web/src/hooks/use-websocket.ts",
+  "apps/ws/README.md",
+  "apps/ws/src/auth.ts",
+  "apps/ws/src/index.ts",
+  "apps/ws/src/instrumentation.ts",
+  "apps/ws/src/presence.ts",
+  "apps/ws/src/presence.test.ts",
+  "apps/ws/src/protocol.ts",
+  "packages/db/src/tracing.ts",
+  "packages/otel/src/trace.ts",
   "packages/email/src/index.ts",
   "packages/email/src/templates/layout.tsx",
   "infra/proxy/loading.html",
@@ -109,8 +135,13 @@ const REPLACEMENT_FILES = [
 
   // CI/CD & Deployment
   ".github/workflows/ci.yml",
-  "apps/api/railway.json",
-  "apps/web/railway.json",
+  ".github/workflows/redeploy.yml",
+  "apps/api/Dockerfile",
+  "apps/web/Dockerfile",
+  "apps/ws/Dockerfile",
+  "apps/cron/Dockerfile",
+  "apps/migrate/Dockerfile",
+  "DEPLOYMENT.md",
 
   // Other
   "scripts/check-peer-deps.ts",
@@ -184,7 +215,7 @@ function printSummary(projectName: string) {
   console.log("Next steps:");
   console.log(`  cd ${projectName}`);
   console.log("  # Edit .env with your secrets");
-  console.log("  docker compose up -d");
+  console.log("  docker compose up -d postgres redis");
   console.log("  bun run db:migrate");
   console.log("  bun run dev");
 }
