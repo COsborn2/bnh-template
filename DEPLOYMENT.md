@@ -20,6 +20,32 @@ This guide assumes:
 
 Those service names matter twice: the variable examples below use Railway reference variables like `${{ api.RAILWAY_PRIVATE_DOMAIN }}`, and the CI deploy script matches Railway services by these exact names when it pins images.
 
+## Before You Start
+
+Gather these first so you never have to stop mid-setup:
+
+| What | Needed for | Where to get it |
+|---|---|---|
+| Railway account | everything below | [railway.com](https://railway.com) |
+| This repo pushed to GitHub | CI/CD image publishing and deploys | — |
+| Cloudflare Turnstile **site key + secret key** | production auth forms (register/login) | Cloudflare dashboard -> Turnstile -> Add widget (free) |
+| Resend API key + verified sender domain | real email delivery (optional but recommended) | [resend.com](https://resend.com) -> API Keys / Domains |
+| Google OAuth client ID + secret | Google login (optional) | Google Cloud console -> APIs & Services -> Credentials -> OAuth client ID |
+| Honeycomb ingest API key | tracing (optional) | [honeycomb.io](https://www.honeycomb.io) -> environment API keys |
+
+Two credentials are created *during* setup rather than up front — where to get each is spelled out in Step 8:
+
+- `RAILWAY_TOKEN` (a Railway project token; requires the Railway project from Step 1 to exist first)
+- `DEPENDABOT_AUTOMERGE_PAT` (a GitHub personal access token; optional)
+
+The order of operations at a glance:
+
+1. Railway: project, databases, app services, public domain (Steps 1–4)
+2. Railway: shared + per-service variables, healthchecks (Steps 5–7)
+3. GitHub: environments, tokens, variables, branch protection (Step 8)
+4. First deploy: `migrate`, then the long-running services (Steps 9–10)
+5. Verify everything, then optionally wire up cron (Steps 11–12)
+
 ## Railway Features This Guide Uses
 
 This repo follows an image-based deployment pattern:
@@ -281,10 +307,12 @@ The CI pipeline needs a few things configured on the GitHub repository before pu
 
 ### The `production` environment and `RAILWAY_TOKEN`
 
-1. In Railway, create a **project token** for the `production` environment (`Project Settings -> Tokens`).
-2. In GitHub, open `Settings -> Environments` and create an environment named exactly `production` (CI also uses a `ci` environment for pull-request image builds; if you skip this, each environment is created automatically the first time a workflow job that references it actually runs).
-3. Add `RAILWAY_TOKEN` as an **Environment secret** on the `production` environment, with the Railway project token as its value.
-4. Optionally add protection rules (required reviewers, deployment branch restricted to `main`) to the `production` environment — these gate both GHCR publishing and Railway mutation, since the Docker and deploy jobs run against this environment.
+1. In Railway, open your project and go to `Project Settings -> Tokens`.
+2. Create a token with the `production` environment selected and a recognizable name (for example `github-ci`). Copy the value immediately — Railway shows it only once.
+   - This is a **project token**: it is scoped to exactly this project and environment at creation time. That scoping is the only thing that points CI at the correct Railway project — the deploy script asks Railway which project the token belongs to instead of storing project IDs in the repo. Mint the token in the wrong project and CI will deploy there.
+3. In GitHub, open the repo's `Settings -> Environments` and create an environment named exactly `production` (CI also uses a `ci` environment for pull-request image builds; if you skip this, each environment is created automatically the first time a workflow job that references it actually runs).
+4. Inside the `production` environment, click `Add environment secret`, name it `RAILWAY_TOKEN`, and paste the Railway project token.
+5. Optionally add protection rules (required reviewers, deployment branch restricted to `main`) to the `production` environment — these gate both GHCR publishing and Railway mutation, since the Docker and deploy jobs run against this environment. This is also the clean way to merge the pipeline before Railway is ready: the deploy job waits for approval instead of failing.
 
 Do **not** store `RAILWAY_TOKEN` as a repository-level secret. Any workflow in the repo could read a repo-level copy without passing the `production` environment gate, which defeats the purpose of gating deploys. If you previously created a repo-level `RAILWAY_TOKEN`, delete it after moving the value to the environment secret.
 
@@ -300,11 +328,20 @@ Set these in `Settings -> Secrets and variables -> Actions -> Variables`:
 | `NEXT_PUBLIC_APP_NAME` | Optional but recommended | Baked into the `web` image at build time. Falls back to `MyApp`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Required for production auth | Baked into the `web` image at build time. Falls back to the non-functional placeholder `test` — auth forms in the deployed web image will not work until this variable is set and the image is rebuilt. |
 
-### Repository secrets
+### `DEPENDABOT_AUTOMERGE_PAT` (optional)
 
-| Secret | Required | Notes |
-|---|---|---|
-| `DEPENDABOT_AUTOMERGE_PAT` | Optional | Classic PAT with `repo` scope used by the Dependabot auto-merge workflow for both approval and merge (see the README). |
+Only needed if you want Dependabot's minor/patch update PRs to approve and merge themselves once CI passes. Without it, Dependabot PRs simply wait for manual review (the auto-merge workflow's approve step fails red on Dependabot PRs, which you can ignore or fix by adding the secret later).
+
+Why a PAT instead of the built-in `GITHUB_TOKEN`: approvals from `github-actions[bot]` fail under the hardened "Allow GitHub Actions to create and approve pull requests: off" setting, and a merge performed by `github-actions[bot]` never triggers the `push` workflow on `main` (GitHub's anti-recursion rule) — so the merged commit would never be built or deployed. The PAT gives both actions a real user identity.
+
+To create and install it:
+
+1. Decide which account should appear as the approver and merger. Your own account works; a dedicated machine account keeps automation visually separate.
+2. From that account: GitHub `Settings -> Developer settings -> Personal access tokens -> Tokens (classic) -> Generate new token (classic)`.
+3. Name it (for example `myapp-dependabot-automerge`), pick an expiration you are comfortable renewing, and check the `repo` scope. Generate it and copy the value.
+4. In the repo: `Settings -> Secrets and variables -> Actions -> New repository secret`, name it `DEPENDABOT_AUTOMERGE_PAT`, and paste the token.
+
+Unlike `RAILWAY_TOKEN`, this secret is deliberately **repository-level**: the auto-merge workflow runs on `pull_request_target` for Dependabot PRs and never passes through the `production` environment gate. The workflow itself limits the blast radius — it refuses PRs containing non-Dependabot commits or files beyond package manifests and lockfiles, and only minor/patch updates auto-merge.
 
 No secret is needed for GHCR — the workflow pushes images with the built-in `GITHUB_TOKEN` (`packages: write`).
 
