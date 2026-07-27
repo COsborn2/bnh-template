@@ -26,7 +26,7 @@ function parseArgs(): { projectName: string; dest: string } {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    console.log("Usage: bunx create-bnh <project-name>");
+    console.log("Usage: bun create bnh <project-name>");
     console.log("");
     console.log("Creates a new BHN (Bun + Hono + Next.js) project.");
     process.exit(0);

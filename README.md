@@ -4,27 +4,41 @@ A production-ready Bun monorepo with Hono, Next.js, PostgreSQL, Redis, better-au
 
 ## Quick Start
 
+### One-time setup
+
+The `create-bnh` command runs from a local checkout of this repo (it is not
+published to npm):
+
+```bash
+git clone https://github.com/COsborn2/bnh-template.git
+cd bnh-template
+bun link
+```
+
+`bun link` registers the local `create-bnh` package globally, so `bun create
+bnh` works from anywhere and scaffolds from this checkout.
+
 ### Create a new project
 
 ```bash
-bunx create-bnh my-app
-```
-
-This scaffolds a new project from the template, replaces placeholder names, installs dependencies, and initializes a git repo.
-
-### Work on the template itself
-
-If you are developing this template and want to test `bun create` locally:
-
-```bash
-# In this repo
-bun link
-
-# From anywhere
 bun create bnh my-app
 ```
 
-`bun link` registers the local `create-bnh` package globally, so `bun create bnh` resolves to your local copy instead of the registry.
+This scaffolds a new project from the template, replaces placeholder names,
+installs dependencies, and initializes a git repo.
+
+### Get the latest template source
+
+Because the linked command copies straight from your checkout, updating it is
+just:
+
+```bash
+# In the bnh-template repo
+git pull
+```
+
+The next `bun create bnh` automatically uses the updated source — there is no
+publish or reinstall step.
 
 ## Tech Stack
 
@@ -89,8 +103,8 @@ bun-template/
 **Prerequisites:** [Bun](https://bun.sh) 1.3+ and [Docker](https://docs.docker.com/get-docker/)
 
 ```bash
-# Create a new app
-bunx create-bnh my-app
+# Create a new app (see Quick Start for the one-time bun link setup)
+bun create bnh my-app
 cd my-app
 
 # Review the generated env files
