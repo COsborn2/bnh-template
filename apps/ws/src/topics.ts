@@ -26,6 +26,12 @@ export function initTopics(cb: TopicCallbacks): void {
 const MAX_SUBSCRIPTIONS_PER_CLIENT = 50;
 
 export function subscribe(client: WsClient, topic: string): boolean {
+  // Refuse sockets that are no longer open (readyState 1). A socket that
+  // closes while a caller is suspended at an await has already had its close
+  // handler (removeClient) run — adding it now would create a ghost
+  // subscriber that no future close event will ever clean up.
+  if (client.readyState !== 1) return false;
+
   const existing = clientTopics.get(client);
   if (existing && existing.size >= MAX_SUBSCRIPTIONS_PER_CLIENT && !existing.has(topic)) {
     return false;
@@ -67,9 +73,11 @@ export function unsubscribe(client: WsClient, topic: string): void {
   }
 }
 
-export function removeClient(client: WsClient): void {
+/** Removes the client from every topic. Returns the topics it was subscribed
+ *  to so callers can follow up per topic (e.g. re-broadcast presence). */
+export function removeClient(client: WsClient): string[] {
   const topics = clientTopics.get(client);
-  if (!topics) return;
+  if (!topics) return [];
 
   for (const topic of topics) {
     const clients = topicClients.get(topic);
@@ -82,8 +90,14 @@ export function removeClient(client: WsClient): void {
     }
   }
   clientTopics.delete(client);
+  return [...topics];
 }
 
 export function getTopicClients(topic: string): Set<WsClient> | undefined {
   return topicClients.get(topic);
+}
+
+/** Topics with at least one locally connected subscriber. */
+export function getActiveTopics(): string[] {
+  return [...topicClients.keys()];
 }

@@ -3,6 +3,9 @@ import { createElement } from "react";
 import { VerificationEmail } from "./templates/verification.js";
 import { PasswordResetEmail } from "./templates/password-reset.js";
 import { PasswordChangedEmail } from "./templates/password-changed.js";
+import { EmailChangedEmail } from "./templates/email-changed.js";
+import { EmailChangeApprovalEmail } from "./templates/email-change-approval.js";
+import { DeleteAccountVerificationEmail } from "./templates/delete-account-verification.js";
 
 const APP_NAME = process.env.APP_NAME || "MyApp";
 const EMAIL_FROM =
@@ -82,6 +85,41 @@ export async function sendPasswordChangedEmail(to: string) {
     to,
     subject: `Your password has been changed — ${APP_NAME}`,
     react: createElement(PasswordChangedEmail),
+  });
+}
+
+export async function sendEmailChangedEmail(to: string, newEmail: string) {
+  return sendEmail({
+    to,
+    subject: `Your email address has been changed — ${APP_NAME}`,
+    react: createElement(EmailChangedEmail, { newEmail }),
+  });
+}
+
+/**
+ * Step 1 of the change-email flow: sent to the CURRENT address. Clicking the
+ * link approves the change; Better Auth then sends the standard verification
+ * email to the new address, and only that second click updates the account.
+ */
+export async function sendEmailChangeApprovalEmail(
+  to: string,
+  newEmail: string,
+  url: string,
+) {
+  return sendEmail({
+    to,
+    subject: `Approve your email change — ${APP_NAME}`,
+    react: createElement(EmailChangeApprovalEmail, { url, newEmail }),
+    url,
+  });
+}
+
+export async function sendDeleteAccountVerificationEmail(to: string, url: string) {
+  return sendEmail({
+    to,
+    subject: `Confirm account deletion — ${APP_NAME}`,
+    react: createElement(DeleteAccountVerificationEmail, { url }),
+    url,
   });
 }
 

@@ -3,10 +3,18 @@ import { publishEvent } from "../lib/redis.js";
 
 const ws = new Hono();
 
-// Validate shared secret on all WS internal routes
+// Validate shared secret on all WS internal routes. Fail closed: without a
+// configured secret these service-to-service routes must not be reachable
+// (comparing against an unset env var would let a request with no header
+// through as undefined === undefined).
 ws.use("*", async (c, next) => {
+  const expectedSecret = process.env.WS_API_SECRET;
+  if (!expectedSecret) {
+    return c.json({ error: "WS auth is not configured" }, 503);
+  }
+
   const secret = c.req.header("X-WS-Secret");
-  if (secret !== process.env.WS_API_SECRET) {
+  if (secret !== expectedSecret) {
     return c.json({ error: "Forbidden" }, 403);
   }
   await next();

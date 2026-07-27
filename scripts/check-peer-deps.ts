@@ -35,8 +35,11 @@ for (const appName of readdirSync(appsDir)) {
 
     const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
     const peerDeps = pkg.peerDependencies ?? {};
+    const peerDepsMeta = pkg.peerDependenciesMeta ?? {};
 
     for (const peer of Object.keys(peerDeps)) {
+      if (peerDepsMeta[peer]?.optional) continue;
+
       if (!appDeps[peer]) {
         console.error(
           `${appPkg.name}: missing "${peer}" (peerDependency of ${dep})`

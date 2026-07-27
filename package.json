@@ -13,15 +13,11 @@
     "lint:fix": "eslint . --fix",
     "db:generate": "turbo db:generate --filter=@app/migrate",
     "db:migrate": "turbo db:migrate --filter=@app/migrate",
-    "test": "turbo test",
-    "seed": "bun --env-file=.env scripts/seed.ts"
+    "db:seed": "turbo db:seed --filter=@app/api",
+    "test": "turbo test"
   },
   "overrides": {
     "eslint": "^9.39.4"
-  },
-  "dependencies": {
-    "@app/db": "workspace:*",
-    "better-auth": "latest"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

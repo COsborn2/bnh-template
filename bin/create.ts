@@ -26,7 +26,7 @@ function parseArgs(): { projectName: string; dest: string } {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    console.log("Usage: bunx create-bnh <project-name>");
+    console.log("Usage: bun create bnh <project-name>");
     console.log("");
     console.log("Creates a new BHN (Bun + Hono + Next.js) project.");
     process.exit(0);
@@ -54,7 +54,20 @@ function parseArgs(): { projectName: string; dest: string } {
 
 // --- Copy Template ---
 
-const EXCLUDE_DIRS = new Set([".git", "node_modules", "bin", "docs", ".turbo"]);
+// Template-only directories, excluded at the repo root. `infra` (the Caddy
+// proxy) stays behind because scaffolded apps consume the template repo's
+// published proxy image instead of building their own copy — see the proxy
+// section of DEPLOYMENT.md.
+const EXCLUDE_ROOT_DIRS = new Set(["bin", "docs", "infra"]);
+// VCS internals and build output, excluded wherever they appear so a dirty
+// template checkout can never leak artifacts into a scaffold.
+const EXCLUDE_ANYWHERE_DIRS = new Set([
+  ".git",
+  "node_modules",
+  ".turbo",
+  ".next",
+  "dist",
+]);
 const EXCLUDE_FILES = new Set(["bun.lock", ".env.local"]);
 
 async function copyTemplate(templateDir: string, dest: string) {
@@ -67,8 +80,10 @@ async function copyTemplate(templateDir: string, dest: string) {
       if (rel === "") return true;
 
       // Check directory exclusions
-      const topLevel = rel.split("/")[0];
-      if (EXCLUDE_DIRS.has(topLevel)) return false;
+      const segments = rel.split("/");
+      if (EXCLUDE_ROOT_DIRS.has(segments[0])) return false;
+      if (segments.some((segment) => EXCLUDE_ANYWHERE_DIRS.has(segment)))
+        return false;
 
       // Check file exclusions
       if (EXCLUDE_FILES.has(basename(rel))) return false;
@@ -85,10 +100,12 @@ const REPLACEMENT_FILES = [
   "package.json",
   "apps/api/package.json",
   "apps/web/package.json",
+  "apps/ws/package.json",
   "apps/cron/package.json",
   "apps/migrate/package.json",
   "packages/db/package.json",
   "packages/email/package.json",
+  "packages/otel/package.json",
   "packages/shared/package.json",
   "packages/theme/package.json",
   ".env.example",
@@ -97,20 +114,48 @@ const REPLACEMENT_FILES = [
   "docker-compose.yml",
 
   // Application Code
+  // Every file that references an @app/* package name (imports, turbo
+  // prune/--filter targets, etc.) must be listed here, or the scaffolded
+  // project keeps a dangling @app/ reference after the packages are renamed
+  // to the new scope.
+  "apps/api/src/__tests__/change-email.test.ts",
   "apps/api/src/lib/auth.ts",
+  "apps/api/src/lib/logger.ts",
+  "apps/api/src/lib/redis.ts",
+  "apps/api/src/middleware/trace-http.ts",
+  "apps/api/src/instrumentation.ts",
+  "apps/api/src/test-preload.ts",
+  "apps/api/src/db/seed.ts",
+  "apps/cron/src/cleanup-predicates.ts",
+  "apps/cron/src/cleanup-predicates.test.ts",
+  "apps/cron/src/retention.ts",
   "apps/web/src/app/layout.tsx",
   "apps/web/src/app/auth/layout.tsx",
   "apps/web/src/app/page.tsx",
   "apps/web/src/app/manifest.json",
+  "apps/web/src/components/chat/chat-page.tsx",
+  "apps/web/src/hooks/use-websocket.ts",
+  "apps/ws/README.md",
+  "apps/ws/src/auth.ts",
+  "apps/ws/src/index.ts",
+  "apps/ws/src/instrumentation.ts",
+  "apps/ws/src/presence.ts",
+  "apps/ws/src/presence.test.ts",
+  "apps/ws/src/protocol.ts",
+  "packages/db/src/tracing.ts",
+  "packages/otel/src/trace.ts",
   "packages/email/src/index.ts",
   "packages/email/src/templates/layout.tsx",
-  "infra/proxy/loading.html",
-  "infra/proxy/loading.template.html",
 
   // CI/CD & Deployment
   ".github/workflows/ci.yml",
-  "apps/api/railway.json",
-  "apps/web/railway.json",
+  ".github/workflows/redeploy.yml",
+  "apps/api/Dockerfile",
+  "apps/web/Dockerfile",
+  "apps/ws/Dockerfile",
+  "apps/cron/Dockerfile",
+  "apps/migrate/Dockerfile",
+  "DEPLOYMENT.md",
 
   // Other
   "scripts/check-peer-deps.ts",
@@ -184,7 +229,7 @@ function printSummary(projectName: string) {
   console.log("Next steps:");
   console.log(`  cd ${projectName}`);
   console.log("  # Edit .env with your secrets");
-  console.log("  docker compose up -d");
+  console.log("  docker compose up -d postgres redis");
   console.log("  bun run db:migrate");
   console.log("  bun run dev");
 }

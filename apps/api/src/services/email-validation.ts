@@ -3,22 +3,29 @@ import blocklistText from "../data/disposable-email-blocklist.conf" with { type:
 
 let blocklist: Set<string> | null = null;
 
+function ensureDisposableEmailBlocklist(): Set<string> {
+  if (!blocklist) {
+    blocklist = new Set(
+      blocklistText
+        .split("\n")
+        .map((line) => line.trim().toLowerCase())
+        .filter((line) => line.length > 0 && !line.startsWith("#"))
+    );
+  }
+
+  return blocklist;
+}
+
+/** Optional warm-up call (index.ts) — parsing also happens lazily on first use. */
 export async function initDisposableEmailBlocklist(): Promise<void> {
-  blocklist = new Set(
-    blocklistText
-      .split("\n")
-      .map((line) => line.trim().toLowerCase())
-      .filter((line) => line.length > 0 && !line.startsWith("#"))
-  );
+  ensureDisposableEmailBlocklist();
 }
 
 export function isDisposableEmail(email: string): boolean {
-  if (!blocklist) {
-    throw new Error("Disposable email blocklist not initialized. Call initDisposableEmailBlocklist() first.");
-  }
+  const loadedBlocklist = ensureDisposableEmailBlocklist();
   const domain = email.split("@")[1]?.toLowerCase();
   if (!domain) return false;
-  return blocklist.has(domain);
+  return loadedBlocklist.has(domain);
 }
 
 export async function checkMxRecords(domain: string): Promise<boolean> {

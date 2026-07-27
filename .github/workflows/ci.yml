@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -20,67 +20,148 @@ env:
 
 jobs:
   changes:
-    name: Detect Docker Changes
+    name: Detect Deploy Changes
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     outputs:
-      web: ${{ steps.filter.outputs.web }}
-      api: ${{ steps.filter.outputs.api }}
-      ws: ${{ steps.filter.outputs.ws }}
-      cron: ${{ steps.filter.outputs.cron }}
-      migrate: ${{ steps.filter.outputs.migrate }}
+      web: ${{ steps.turbo.outputs.web }}
+      api: ${{ steps.turbo.outputs.api }}
+      ws: ${{ steps.turbo.outputs.ws }}
+      cron: ${{ steps.turbo.outputs.cron }}
+      migrate: ${{ steps.turbo.outputs.migrate }}
       proxy: ${{ steps.filter.outputs.proxy }}
+      deploy_matrix: ${{ steps.matrix.outputs.deploy_matrix }}
+      has_deploy_changes: ${{ steps.matrix.outputs.has_deploy_changes }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.10"
+
+      - name: Cache dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Detect affected Turbo services
+        id: turbo
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # On the initial push to a branch, github.event.before is the zero
+          # sha — there is no base commit to diff against, so treat every
+          # service as affected (matching paths-filter's "initial push =
+          # everything added" semantics) instead of diffing HEAD against
+          # itself via merge-base.
+          if [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            for service in web api ws cron migrate; do
+              echo "${service}=true" >> "${GITHUB_OUTPUT}"
+            done
+            {
+              echo "### Turbo affected build tasks"
+              echo ""
+              echo "Initial push detected — all services treated as affected."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          if [ -z "${BASE_SHA}" ]; then
+            BASE_SHA="$(git merge-base HEAD origin/main)"
+          fi
+
+          raw_output="${RUNNER_TEMP}/turbo-affected.raw"
+          json_output="${RUNNER_TEMP}/turbo-affected.json"
+
+          bunx turbo query affected \
+            --base "${BASE_SHA}" \
+            --head "${HEAD_SHA}" \
+            --tasks build > "${raw_output}"
+
+          sed -n '/^{/,$p' "${raw_output}" > "${json_output}"
+
+          for service in web api ws cron migrate; do
+            task="@app/${service}#build"
+            if jq -e --arg task "${task}" '.data.affectedTasks.items[]? | select(.fullName == $task)' "${json_output}" >/dev/null; then
+              echo "${service}=true" >> "${GITHUB_OUTPUT}"
+            else
+              echo "${service}=false" >> "${GITHUB_OUTPUT}"
+            fi
+          done
+
+          {
+            echo "### Turbo affected build tasks"
+            echo ""
+            jq -r '.data.affectedTasks.items[]?.fullName // empty' "${json_output}" | sed 's/^/- `/' | sed 's/$/`/'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
-            web:
-              - 'apps/web/**'
-              - 'packages/theme/**'
-              - 'packages/shared/**'
-              - 'bun.lock'
-              - 'package.json'
-              - 'tsconfig.base.json'
-              - 'turbo.json'
-            api:
-              - 'apps/api/**'
-              - 'packages/db/**'
-              - 'packages/email/**'
-              - 'packages/shared/**'
-              - 'bun.lock'
-              - 'package.json'
-              - 'tsconfig.base.json'
-              - 'turbo.json'
-            ws:
-              - 'apps/ws/**'
-              - 'packages/shared/**'
-              - 'bun.lock'
-              - 'package.json'
-              - 'tsconfig.base.json'
-              - 'turbo.json'
-            cron:
-              - 'apps/cron/**'
-              - 'packages/db/**'
-              - 'bun.lock'
-              - 'package.json'
-              - 'tsconfig.base.json'
-              - 'turbo.json'
-            migrate:
-              - 'apps/migrate/**'
-              - 'packages/db/**'
-              - 'bun.lock'
-              - 'package.json'
-              - 'tsconfig.base.json'
-              - 'turbo.json'
             proxy:
               - 'infra/proxy/**'
+
+      - name: Build affected service matrix
+        id: matrix
+        env:
+          WEB_CHANGED: ${{ steps.turbo.outputs.web }}
+          API_CHANGED: ${{ steps.turbo.outputs.api }}
+          WS_CHANGED: ${{ steps.turbo.outputs.ws }}
+          CRON_CHANGED: ${{ steps.turbo.outputs.cron }}
+          MIGRATE_CHANGED: ${{ steps.turbo.outputs.migrate }}
+          PROXY_CHANGED: ${{ steps.filter.outputs.proxy }}
+        run: |
+          set -euo pipefail
+
+          matrix="$(
+            jq -cn \
+              --arg web "$WEB_CHANGED" \
+              --arg api "$API_CHANGED" \
+              --arg ws "$WS_CHANGED" \
+              --arg cron "$CRON_CHANGED" \
+              --arg migrate "$MIGRATE_CHANGED" \
+              --arg proxy "$PROXY_CHANGED" \
+              '[
+                (if $web == "true" then {service: "web", dockerfile: "apps/web/Dockerfile"} else empty end),
+                (if $api == "true" then {service: "api", dockerfile: "apps/api/Dockerfile"} else empty end),
+                (if $ws == "true" then {service: "ws", dockerfile: "apps/ws/Dockerfile"} else empty end),
+                (if $cron == "true" then {service: "cron", dockerfile: "apps/cron/Dockerfile"} else empty end),
+                (if $migrate == "true" then {service: "migrate", dockerfile: "apps/migrate/Dockerfile"} else empty end),
+                (if $proxy == "true" then {service: "proxy", dockerfile: "infra/proxy/Dockerfile", context: "infra/proxy"} else empty end)
+              ] | {include: .}'
+          )"
+          count="$(jq '.include | length' <<<"$matrix")"
+
+          echo "deploy_matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          if [ "$count" -gt 0 ]; then
+            echo "has_deploy_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_deploy_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "### Affected deploy services"
+            echo ""
+            if [ "$count" -gt 0 ]; then
+              jq -r '.include[] | "- `" + .service + "`"' <<<"$matrix"
+            else
+              echo "No deployable service images changed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   lint:
     name: Lint
@@ -150,11 +231,23 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/myapp_test
+      REDIS_URL: redis://localhost:6379
       BETTER_AUTH_SECRET: ci-test-secret
       BETTER_AUTH_URL: http://localhost:3000
+      APP_NAME: MyApp
       TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+      WS_API_SECRET: ci-ws-secret
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -183,236 +276,234 @@ jobs:
     name: Docker ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: [changes, lint, build, test]
+    if: ${{ needs.changes.outputs.has_deploy_changes == 'true' }}
+    environment:
+      name: ${{ github.event_name == 'push' && 'production' || 'ci' }}
+      deployment: false
     permissions:
       contents: read
+      packages: write
     strategy:
-      matrix:
-        include:
-          - service: web
-            dockerfile: apps/web/Dockerfile
-            changed: ${{ needs.changes.outputs.web }}
-          - service: api
-            dockerfile: apps/api/Dockerfile
-            changed: ${{ needs.changes.outputs.api }}
-          - service: ws
-            dockerfile: apps/ws/Dockerfile
-            changed: ${{ needs.changes.outputs.ws }}
-          - service: cron
-            dockerfile: apps/cron/Dockerfile
-            changed: ${{ needs.changes.outputs.cron }}
-          - service: migrate
-            dockerfile: apps/migrate/Dockerfile
-            changed: ${{ needs.changes.outputs.migrate }}
-          - service: proxy
-            dockerfile: infra/proxy/Dockerfile
-            context: infra/proxy
-            changed: ${{ needs.changes.outputs.proxy }}
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.deploy_matrix) }}
+    concurrency:
+      group: docker-${{ github.ref_name }}-${{ matrix.service }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
-      - name: Skip unchanged service
-        if: ${{ matrix.changed != 'true' }}
-        run: echo "No Docker changes detected for ${{ matrix.service }}, skipping."
-
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        if: ${{ matrix.changed == 'true' }}
 
       - name: Set up Docker Buildx
-        if: ${{ matrix.changed == 'true' }}
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Validate Caddyfile
-        if: ${{ matrix.changed == 'true' && matrix.service == 'proxy' }}
+        if: ${{ matrix.service == 'proxy' }}
         run: docker run --rm -v "$PWD/infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 
-      - name: Extract publish metadata
-        if: ${{ matrix.changed == 'true' && github.event_name == 'push' }}
+      - name: Build image
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context || '.' }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha
+          build-args: |
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'MyApp') || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
+
+      - name: Extract image metadata
+        if: ${{ github.event_name == 'push' }}
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
-          tags: |
-            type=raw,value=latest
-            type=sha,format=long
           labels: |
             org.opencontainers.image.title=${{ github.event.repository.name }}-${{ matrix.service }}
             org.opencontainers.image.description=Bun Full-Stack Starter ${{ matrix.service }} container image
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.source=${{ env.REPOSITORY_URL }}
 
-      - name: Prepare image artifact directory
-        if: ${{ matrix.changed == 'true' && github.event_name == 'push' }}
-        run: mkdir -p "${RUNNER_TEMP}/images"
-
-      - name: Build image
-        if: ${{ matrix.changed == 'true' && github.event_name == 'pull_request' }}
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: ${{ matrix.context || '.' }}
-          file: ${{ matrix.dockerfile }}
-          cache-from: type=gha
-          build-args: |
-            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'CI') || '' }}
-            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
-
-      - name: Build image artifact
-        if: ${{ matrix.changed == 'true' && github.event_name == 'push' }}
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: ${{ matrix.context || '.' }}
-          file: ${{ matrix.dockerfile }}
-          tags: local/${{ matrix.service }}:${{ github.sha }}
-          outputs: type=docker,dest=${{ runner.temp }}/images/${{ matrix.service }}.tar
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'CI') || '' }}
-            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
-
-      - name: Upload image artifact
-        if: ${{ matrix.changed == 'true' && github.event_name == 'push' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: image-${{ matrix.service }}
-          path: ${{ runner.temp }}/images/${{ matrix.service }}.tar
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Record publish tags
-        if: ${{ matrix.changed == 'true' && github.event_name == 'push' }}
+      - name: Resolve image name
+        if: ${{ github.event_name == 'push' }}
+        id: image
+        env:
+          SERVICE: ${{ matrix.service }}
         run: |
-          mkdir -p "$RUNNER_TEMP/tags"
-          printf '%s\n' '${{ steps.meta.outputs.tags }}' > "$RUNNER_TEMP/tags/${{ matrix.service }}.txt"
+          set -euo pipefail
 
-      - name: Upload publish tags
-        if: ${{ matrix.changed == 'true' && github.event_name == 'push' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: tags-${{ matrix.service }}
-          path: ${{ runner.temp }}/tags/${{ matrix.service }}.txt
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 1
-
-  publish:
-    name: Publish ${{ matrix.service }}
-    runs-on: ubuntu-latest
-    needs: [changes, docker]
-    if: ${{ github.event_name == 'push' }}
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - service: web
-            changed: ${{ needs.changes.outputs.web }}
-          - service: api
-            changed: ${{ needs.changes.outputs.api }}
-          - service: ws
-            changed: ${{ needs.changes.outputs.ws }}
-          - service: cron
-            changed: ${{ needs.changes.outputs.cron }}
-          - service: migrate
-            changed: ${{ needs.changes.outputs.migrate }}
-          - service: proxy
-            changed: ${{ needs.changes.outputs.proxy }}
-    steps:
-      - name: Skip unchanged service
-        if: ${{ matrix.changed != 'true' }}
-        run: echo "No Docker changes detected for ${{ matrix.service }}, skipping publish."
-
-      - name: Download image artifact
-        if: ${{ matrix.changed == 'true' }}
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: image-${{ matrix.service }}
-          path: ${{ runner.temp }}/images
-
-      - name: Download publish tags
-        if: ${{ matrix.changed == 'true' }}
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: tags-${{ matrix.service }}
-          path: ${{ runner.temp }}/tags
+          image="$(printf '%s/%s' "${IMAGE_PREFIX}" "${SERVICE}" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "sha_tag=${image}:sha-${GITHUB_SHA}"
+            echo "latest_tag=${image}:latest"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
-        if: ${{ matrix.changed == 'true' }}
+        if: ${{ github.event_name == 'push' }}
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load image artifact
-        if: ${{ matrix.changed == 'true' }}
-        run: docker load --input "${RUNNER_TEMP}/images/${{ matrix.service }}.tar"
+      - name: Build and push image
+        if: ${{ github.event_name == 'push' }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context || '.' }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.image.outputs.sha_tag }}
+            ${{ steps.image.outputs.latest_tag }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'MyApp') || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
 
-      - name: Publish image tags
-        if: ${{ matrix.changed == 'true' }}
-        run: |
-          source_tag="local/${{ matrix.service }}:${{ github.sha }}"
-          mapfile -t tags < "${RUNNER_TEMP}/tags/${{ matrix.service }}.txt"
-          for tag in "${tags[@]}"; do
-            if [[ -n "$tag" ]]; then
-              docker tag "$source_tag" "$tag"
-              docker push "$tag"
-            fi
-          done
-
-      - name: Summarize container publishing
-        if: ${{ matrix.changed == 'true' }}
+      - name: Summarize published image
+        if: ${{ github.event_name == 'push' }}
         run: |
           {
-            echo "### Published \`${{ matrix.service }}\`"
+            echo "### Published \`${{ matrix.service }}\` image"
             echo ""
-            echo "- Image: \`ghcr.io/${{ github.repository }}/${{ matrix.service }}\`"
+            echo "- Image: \`${{ steps.image.outputs.sha_tag }}\`"
             echo "- Repository: ${{ env.REPOSITORY_URL }}"
             echo "- Note: New GHCR container packages default to private. If this is the first publish for this image, open its package settings on GitHub and change visibility to Public for anonymous pulls."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  redeploy:
-    name: Redeploy Railway ${{ matrix.service }}
+  railway-deploy:
+    name: Deploy to Railway
     runs-on: ubuntu-latest
-    needs: [changes, publish]
-    if: ${{ github.event_name == 'push' }}
-    container: ghcr.io/railwayapp/cli@sha256:10ff70f5b1d65e6eee8d8b7839b917bc88631efa5b5eddaa33a585a7891b254c # latest
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-    strategy:
-      matrix:
-        include:
-          - service: web
-            changed: ${{ needs.changes.outputs.web }}
-          - service: api
-            changed: ${{ needs.changes.outputs.api }}
-          - service: ws
-            changed: ${{ needs.changes.outputs.ws }}
-          - service: cron
-            changed: ${{ needs.changes.outputs.cron }}
-          - service: migrate
-            changed: ${{ needs.changes.outputs.migrate }}
-          - service: proxy
-            changed: ${{ needs.changes.outputs.proxy }}
+    needs: [changes, docker]
+    # needs.docker.result is checked explicitly so a partially failed image
+    # matrix (fail-fast: false) can never deploy an incomplete set of images.
+    if: ${{ github.event_name == 'push' && needs.changes.outputs.has_deploy_changes == 'true' && needs.docker.result == 'success' }}
+    environment:
+      name: production
+      deployment: true
+    permissions:
+      contents: read
+    # redeploy.yml shares this group string so manual redeploys and CI deploys
+    # never commit Railway patches concurrently — keep them in sync. The group
+    # is deliberately ref-independent: there is only one Railway environment,
+    # so redeploys dispatched from any ref must serialize against CI deploys.
+    concurrency:
+      group: railway-deploy
+      cancel-in-progress: false
     steps:
-      - name: Skip unchanged service
-        if: ${{ matrix.changed != 'true' }}
-        run: echo "No Docker changes detected for ${{ matrix.service }}, skipping Railway redeploy."
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Skip optional cron redeploy
-        if: ${{ matrix.changed == 'true' && matrix.service == 'cron' && vars.RAILWAY_ENABLE_CRON_REDEPLOY != 'true' }}
-        run: echo "Cron service redeploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
+      - name: Resolve changed services
+        id: services
+        env:
+          DEPLOY_MATRIX: ${{ needs.changes.outputs.deploy_matrix }}
+          ENABLE_CRON_REDEPLOY: ${{ vars.RAILWAY_ENABLE_CRON_REDEPLOY }}
+        run: |
+          set -euo pipefail
 
-      - name: Redeploy Railway service
-        if: ${{ matrix.changed == 'true' && (matrix.service != 'cron' || vars.RAILWAY_ENABLE_CRON_REDEPLOY == 'true') }}
-        run: railway redeploy --service "${{ matrix.service }}" --yes
+          services="$(jq -r '[.include[].service] | join(" ")' <<<"$DEPLOY_MATRIX")"
 
-      - name: Summarize Railway redeploy
-        if: ${{ matrix.changed == 'true' && (matrix.service != 'cron' || vars.RAILWAY_ENABLE_CRON_REDEPLOY == 'true') }}
+          # The cron service is optional on Railway; deploy it only when the
+          # repository variable RAILWAY_ENABLE_CRON_REDEPLOY is set to "true".
+          if [ "${ENABLE_CRON_REDEPLOY}" != "true" ]; then
+            filtered=""
+            for service in $services; do
+              if [ "$service" = "cron" ]; then
+                echo "Cron service deploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
+                continue
+              fi
+              filtered="${filtered:+${filtered} }${service}"
+            done
+            services="$filtered"
+          fi
+
+          echo "list=${services}" >> "$GITHUB_OUTPUT"
+          if [ -n "$services" ]; then
+            echo "has_services=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_services=false" >> "$GITHUB_OUTPUT"
+            echo "No Railway services to deploy for this change set."
+          fi
+
+      - name: Deploy all images in one Railway patch
+        if: ${{ steps.services.outputs.has_services == 'true' }}
+        id: railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES: ${{ steps.services.outputs.list }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          scripts/railway-deploy-image.sh
+
+      - name: Summarize release
+        if: ${{ steps.services.outputs.has_services == 'true' }}
         run: |
           {
-            echo "### Redeployed Railway \`${{ matrix.service }}\`"
+            echo "### Released to Railway"
             echo ""
-            echo "- Trigger: GHCR publish to \`:latest\` on \`main\`"
-            echo "- Command: \`railway redeploy --service ${{ matrix.service }} --yes\`"
+            echo "- Services: \`${{ steps.railway.outputs.services }}\`"
+            echo "- Images: \`${{ steps.railway.outputs.images }}\`"
+            echo "- Previous images: \`${{ steps.railway.outputs.before_images }}\`"
+            echo "- Environment ID: \`${{ steps.railway.outputs.environment_id }}\`"
+            echo "- Patch workflow ID: \`${{ steps.railway.outputs.patch_workflow_id }}\`"
+            echo "- Command: \`scripts/railway-deploy-image.sh\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  docker-images:
+    name: Docker Images
+    runs-on: ubuntu-latest
+    needs: [changes, lint, build, test, docker]
+    if: ${{ always() }}
+    steps:
+      - name: Verify affected image jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
+          EVENT_NAME: ${{ github.event_name }}
+          HAS_DEPLOY_CHANGES: ${{ needs.changes.outputs.has_deploy_changes }}
+        run: |
+          set -euo pipefail
+
+          echo "Changes result: ${CHANGES_RESULT}"
+          echo "Lint result: ${LINT_RESULT}"
+          echo "Build result: ${BUILD_RESULT}"
+          echo "Test result: ${TEST_RESULT}"
+          echo "Docker result: ${DOCKER_RESULT}"
+          echo "Event name: ${EVENT_NAME}"
+          echo "Has deploy changes: ${HAS_DEPLOY_CHANGES}"
+
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "Deploy change detection did not complete successfully." >&2
+            exit 1
+          fi
+
+          # Fail — do not skip — when any upstream job failed, so this
+          # aggregate is safe to use as the single required status check.
+          if [ "$LINT_RESULT" != "success" ] || [ "$BUILD_RESULT" != "success" ] || [ "$TEST_RESULT" != "success" ]; then
+            echo "Upstream lint, build, or test did not succeed." >&2
+            exit 1
+          fi
+
+          if [ "$HAS_DEPLOY_CHANGES" = "true" ]; then
+            if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; then
+              if [ "$DOCKER_RESULT" != "success" ]; then
+                echo "One or more affected Docker image builds failed, were cancelled, or were skipped." >&2
+                exit 1
+              fi
+            else
+              echo "Unexpected event for deploy image verification: ${EVENT_NAME}" >&2
+              exit 1
+            fi
+          else
+            if [ "$DOCKER_RESULT" != "skipped" ] && [ "$DOCKER_RESULT" != "success" ]; then
+              echo "Docker image jobs ended unexpectedly for a no-change run." >&2
+              exit 1
+            fi
+          fi

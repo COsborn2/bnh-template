@@ -1,5 +1,9 @@
 // ----- EXAMPLE: Seed script -----
 // Creates test users for the chat example. Remove when building your own app.
+//
+// Runs as a Turbo task from the repo root: `bun run db:seed`.
+// Living inside apps/api keeps runtime dependencies out of the workspace root
+// and lets future seeds reuse real application code paths (auth, services).
 // ----- END EXAMPLE -----
 
 import { db } from "@app/db";

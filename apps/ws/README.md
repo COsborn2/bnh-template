@@ -52,6 +52,46 @@ graph TB
 
 The WS server contains **zero business logic**. All domain logic belongs in the API.
 
+### Auth failure taxonomy
+
+Upgrade-time auth distinguishes three failure modes instead of collapsing
+everything into 401:
+
+- **401 Unauthorized** — the session was genuinely rejected (no/invalid session and no guest identity). Clients should stop.
+- **502 WS auth contract violation** — the API's auth payload shape doesn't match what the WS server expects (deploy mismatch). Logged with the auth path and response keys.
+- **503 WS auth unavailable** — the API couldn't be reached (restart, network blip). Clients should retry.
+
+### Presence
+
+Presence ("who is online") is aggregated across WS instances through Redis:
+each instance writes its local roster into a per-topic hash
+(`presence:{topic}`, field = instance id) and publishes a `presence-sync`
+nudge; every instance then merges all rosters (stale-pruned, deduped,
+deterministically sorted) and pushes one `{ type: "presence", topic, users }`
+message to its local subscribers. A heartbeat re-stamps rosters every 15s so
+users on a crashed instance age out within 45s. The merge logic lives in
+`src/presence.ts` with unit tests.
+
+### Backplane control messages
+
+Redis payloads are kind-discriminated envelopes (see `RealtimeMessage` in
+`@app/shared`), so the API can instruct all WS instances rather than only
+relay data. Helpers in `apps/api/src/lib/redis.ts`:
+
+- `publishEvent(topic, data)` — fan `data` out to every subscriber (`{ kind: "event", data }`)
+- `publishDisconnectUser(topic, userId)` — close that user's sockets on every instance with close code `4001` (clients do not auto-reconnect)
+- `publishRevalidateTopic(topic)` — every instance re-runs `POST {WS_AUTHORIZE_URL}` per subscriber and force-unsubscribes anyone whose access was revoked (the client receives an `access_revoked` error)
+
+Envelopes may carry an additive `_otel` field with W3C trace context so one
+trace spans api → redis → ws → clients; consumers switch on `kind` and
+ignore it.
+
+Payloads with an unrecognized or malformed `kind` are logged and dropped —
+never rebroadcast to clients — so when adding a new control kind, deploy the
+WS service before the API starts publishing it. Only payloads without a
+`kind` field at all (direct publishes that predate the envelope) are fanned
+out as raw event data.
+
 ## Quick Start
 
 ```bash
@@ -122,15 +162,26 @@ Scale by increasing `numReplicas` in `railway.json`. Each instance subscribes to
 { "type": "subscribed", "topic": "chat:room-42" }
 { "type": "unsubscribed", "topic": "chat:room-42" }
 { "type": "event", "topic": "chat:room-42", "data": { ... } }
+{ "type": "presence", "topic": "chat:room-42", "users": [{ "id": "u1", "name": "Amy", "isGuest": false }] }
 { "type": "error", "code": "unauthorized", "message": "Not allowed" }
 ```
+
+### Close codes
+
+Application close codes (4000-4999) mean the server ended the socket on
+purpose — the client hook reports them via `onServerClose` and does **not**
+auto-reconnect:
+
+| Code | Meaning |
+|---|---|
+| `4001` | Disconnected by server (e.g. user kicked/removed) |
 
 ## Example Code vs Infrastructure
 
 **Example code (remove when building your app):**
 - `apps/web/src/app/chat/` — example chat page
 - Chat-specific logic inside `apps/api/src/routes/ws.ts` (replace the logic, keep the endpoints)
-- `scripts/seed.ts` — example test users
+- `apps/api/src/db/seed.ts` — example test users (run via `bun run db:seed`; also remove the `db:seed` scripts in `apps/api/package.json` and the root `package.json`, and the `db:seed` task in `turbo.json`)
 
 **Infrastructure (keep):**
 - `apps/ws/` — the entire WebSocket server
@@ -173,12 +224,20 @@ Message protocol (server to client):
   { type: "subscribed", topic: string }
   { type: "unsubscribed", topic: string }
   { type: "event", topic: string, data: any }
+  { type: "presence", topic: string, users: { id, name, isGuest }[] }
   { type: "error", code: string, message: string }
+
+Redis backplane envelopes (API -> WS instances, see RealtimeMessage in @app/shared):
+  { kind: "event", data: any }            fan out to subscribers
+  { kind: "disconnect-user", userId }     close that user's sockets everywhere (code 4001)
+  { kind: "revalidate-topic" }            re-run authorization for every subscriber
+  { kind: "presence-sync" }               re-merge and re-broadcast presence
 
 To add a new real-time feature:
 1. Add authorization logic in POST /api/ws/authorize for your new topic pattern
 2. Add event handling in POST /api/ws/events for messages on that topic
 3. Use publishEvent(topic, data) from apps/api/src/lib/redis.ts to push events
+   (publishDisconnectUser / publishRevalidateTopic for control messages)
 4. Subscribe to the topic from the client using the useWebSocket hook
 
 Do NOT modify apps/ws/ for business logic. All domain logic belongs in apps/api/.

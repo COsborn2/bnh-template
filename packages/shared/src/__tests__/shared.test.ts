@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseClientMessage } from "../protocol.js";
+import { isRealtimeMessage, parseClientMessage } from "../protocol.js";
 
 describe("parseClientMessage", () => {
   test("parses a valid subscribe message", () => {
@@ -81,5 +81,30 @@ describe("parseClientMessage", () => {
   test("returns null for array input", () => {
     const result = parseClientMessage("[]");
     expect(result).toBeNull();
+  });
+});
+
+describe("isRealtimeMessage", () => {
+  test("accepts an event envelope", () => {
+    expect(isRealtimeMessage({ kind: "event", data: { a: 1 } })).toBe(true);
+  });
+
+  test("accepts control envelopes", () => {
+    expect(isRealtimeMessage({ kind: "disconnect-user", userId: "u1" })).toBe(
+      true
+    );
+    expect(isRealtimeMessage({ kind: "revalidate-topic" })).toBe(true);
+    expect(isRealtimeMessage({ kind: "presence-sync" })).toBe(true);
+  });
+
+  test("rejects disconnect-user without a userId", () => {
+    expect(isRealtimeMessage({ kind: "disconnect-user" })).toBe(false);
+  });
+
+  test("rejects unknown kinds and raw payloads", () => {
+    expect(isRealtimeMessage({ kind: "mystery" })).toBe(false);
+    expect(isRealtimeMessage({ type: "chat:message", body: "hi" })).toBe(false);
+    expect(isRealtimeMessage(null)).toBe(false);
+    expect(isRealtimeMessage("event")).toBe(false);
   });
 });

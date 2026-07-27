@@ -5,19 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "bun --env-file=../../.env --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun --production",
+    "build": "bun build src/index.ts --outdir dist --target bun --production --sourcemap=linked",
     "start": "bun dist/index.js",
     "lint": "tsc --noEmit",
-    "test": "NODE_ENV=test bun test"
+    "db:seed": "bun --env-file=../../.env src/db/seed.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@app/db": "workspace:*",
     "@app/email": "workspace:*",
+    "@app/otel": "workspace:*",
     "@app/shared": "workspace:*",
-    "better-auth": "latest",
+    "@opentelemetry/api": "^1.9.1",
+    "better-auth": "^1.6.25",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.32",
     "postgres": "^3.4.9",
+    "rate-limiter-flexible": "^11.2.0",
+    "winston": "^3.18.3",
     "zod": "^4.4.3",
     "ioredis": "^5.11.1"
   },

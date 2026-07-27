@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
+import { api } from "@/lib/api";
 
 interface UsernameInputProps {
   value: string;
@@ -50,18 +51,14 @@ export function UsernameInput({
       updateStatus("checking");
       debounceRef.current = setTimeout(async () => {
         try {
-          const res = await fetch("/api/auth/is-username-available", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ username: normalized }),
-          });
-          if (res.ok) {
-            const body = await res.json();
-            updateStatus(body.available ? "available" : "taken");
-          } else {
-            updateStatus("idle");
-          }
+          const body = await api<{ available: boolean }>(
+            "/auth/is-username-available",
+            {
+              method: "POST",
+              body: JSON.stringify({ username: normalized }),
+            },
+          );
+          updateStatus(body.available ? "available" : "taken");
         } catch {
           updateStatus("idle");
         }

@@ -2,6 +2,10 @@
 
 Caddy reverse proxy that routes traffic to the web and API services. Includes a cold-start loading page served when upstream services are scaled to zero.
 
+This directory exists only in the template repo. The proxy is fully generic — every behavior is driven by env vars (`API_URL`, `WEB_URL`, `WS_URL`, `APP_NAME` for the loading-page title) — so scaffolded apps do not carry this source; they run the image this repo publishes to `ghcr.io/cosborn2/bnh-template/proxy` (`:latest` recommended). Changes merged here reach consumers when they redeploy their `proxy` service.
+
+Maintainer note: the GHCR `proxy` package must stay **public** so consumers' Railway projects can pull it without credentials.
+
 ## How It Works
 
 - `/api/*` routes to the API service
@@ -15,7 +19,11 @@ Caddy reverse proxy that routes traffic to the web and API services. Includes a 
 
 - Common scanner noise and direct static utility paths such as `robots.txt` and the proxy-served `favicon.ico` are skipped in access logs.
 - Proxied requests keep their access logs and include a lightweight `route` label so it is easier to distinguish `api`, `ws`, `web`, and startup-fallback traffic in Railway logs.
-- Remaining access log entries are trimmed down by dropping verbose request/response header objects while keeping a compact `client_ip` field derived from `X-Forwarded-For`.
+- Remaining access log entries are trimmed down by dropping verbose request/response header objects while keeping a compact `client_ip` field (Caddy's resolved real client IP) plus the raw `x_forwarded_for` / `x_real_ip` header values for debugging the trust chain.
+
+## Client IP Trust
+
+The global `servers` block trusts Railway's private/CGNAT hop (`trusted_proxies static private_ranges 100.64.0.0/10`) and reads `client_ip_headers X-Real-IP X-Forwarded-For`, so Caddy's `{client_ip}` placeholder resolves to the real end-user IP instead of the internal proxy address. Every `reverse_proxy` block then overwrites `X-Real-IP` and `X-Forwarded-For` with that resolved value, so upstreams (better-auth IP records, per-IP rate limiting) receive exactly one trustworthy, non-spoofable client IP.
 
 ## Theme Colors
 
@@ -42,6 +50,7 @@ docker run --rm -p 8080:8080 \
   -e PORT=8080 \
   -e API_URL=http://localhost:9999 \
   -e WEB_URL=http://localhost:9998 \
+  -e APP_NAME=MyApp \
   app-proxy-test
 ```
 
