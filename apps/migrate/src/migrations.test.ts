@@ -69,7 +69,7 @@ describe("migrations folder", () => {
     // databases, which fails on the first duplicate DDL statement. Schema
     // changes must land as NEW migrations appended to the journal.
     const published: Array<[number, string, number]> = [
-      [0, "0000_good_shen", 1774171875841],
+      [0, "0000_cultured_callisto", 1785128510905],
     ];
 
     const journal = await readJournal();
