@@ -27,7 +27,7 @@ Gather these first so you never have to stop mid-setup:
 | What | Needed for | Where to get it |
 |---|---|---|
 | Railway account | everything below | [railway.com](https://railway.com) |
-| This repo pushed to GitHub | CI/CD image publishing and deploys | — |
+| Your app scaffolded and pushed to GitHub | CI/CD image publishing and deploys | Step 0 below |
 | Cloudflare Turnstile **site key + secret key** | production auth forms (register/login) | Cloudflare dashboard -> Turnstile -> Add widget (free) |
 | Resend API key + verified sender domain | real email delivery (optional but recommended) | [resend.com](https://resend.com) -> API Keys / Domains |
 | Google OAuth client ID + secret | Google login (optional) | Google Cloud console -> APIs & Services -> Credentials -> OAuth client ID |
@@ -40,6 +40,7 @@ Two credentials are created *during* setup rather than up front — where to get
 
 The order of operations at a glance:
 
+0. Scaffold the app from the template and push it to GitHub (Step 0)
 1. Railway: project, databases, app services, public domain (Steps 1–4)
 2. Railway: shared + per-service variables, healthchecks (Steps 5–7)
 3. GitHub: environments, tokens, variables, branch protection (Step 8)
@@ -98,6 +99,39 @@ Recommended exposure:
 | `cron` | Scheduled job | `ghcr.io/<owner>/<repo>/cron` (`apps/cron/Dockerfile`) | No | none |
 
 `postgres` and `redis` should be added from Railway’s managed database services rather than from this repo.
+
+## Step 0: Scaffold Your App and Push It to GitHub
+
+Skip this step if the app already exists on GitHub.
+
+1. One-time setup for the `create-bnh` command (it runs from a local checkout of the template; it is not published to npm):
+
+   ```bash
+   git clone https://github.com/COsborn2/bnh-template.git
+   cd bnh-template
+   bun link
+   ```
+
+2. Scaffold the app (from wherever you keep your projects — the command creates the folder for you):
+
+   ```bash
+   bun create bnh my-app
+   cd my-app
+   ```
+
+   This copies the template with your project name substituted everywhere (package scope, display name, database name), creates `.env` and `apps/web/.env.local` from the examples, installs dependencies, and initializes a git repo with an initial commit. There is no remote yet.
+
+3. Create an **empty** GitHub repository (no README, no .gitignore — the scaffold already has both), then connect and push:
+
+   ```bash
+   git branch -M main
+   git remote add origin git@github.com:<you>/my-app.git
+   git push -u origin main
+   ```
+
+   The branch must be named `main` — CI builds images on every push to `main` and deploys from it.
+
+4. Expect that first push's CI run to publish images but end with a red (or approval-gated) `Deploy to Railway` job — Railway and the `RAILWAY_TOKEN` secret don't exist yet. That's normal; Step 3 and Step 8 finish the wiring.
 
 ## Step 1: Create the Project
 
