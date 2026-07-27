@@ -7,7 +7,7 @@ This guide describes the recommended Railway deployment for this repo as a multi
 - `api` for the Hono API
 - `web` for the Next.js frontend
 - `ws` for the standalone WebSocket server
-- `proxy` for the public Caddy entrypoint
+- `proxy` for the public Caddy entrypoint — runs the template repo's published image, not code from your app (see Step 3)
 - `migrate` for applying schema migrations
 - `cron` as an optional scheduled-job service
 
@@ -94,7 +94,7 @@ Recommended exposure:
 | `api` | Persistent service | `ghcr.io/<owner>/<repo>/api` (`apps/api/Dockerfile`) | No | `/api/health` |
 | `web` | Persistent service | `ghcr.io/<owner>/<repo>/web` (`apps/web/Dockerfile`) | No | `/health` |
 | `ws` | Persistent service | `ghcr.io/<owner>/<repo>/ws` (`apps/ws/Dockerfile`) | No | `/health` |
-| `proxy` | Persistent service | `ghcr.io/<owner>/<repo>/proxy` (`infra/proxy/Dockerfile`) | Yes | `/robots.txt` |
+| `proxy` | Persistent service | `ghcr.io/cosborn2/bnh-template/proxy:latest` (published by the template repo) | Yes | `/robots.txt` |
 | `migrate` | Migration service | `ghcr.io/<owner>/<repo>/migrate` (`apps/migrate/Dockerfile`) | No | none |
 | `cron` | Scheduled job | `ghcr.io/<owner>/<repo>/cron` (`apps/cron/Dockerfile`) | No | none |
 
@@ -164,18 +164,29 @@ Recommended setup (GHCR images):
 
 1. Configure each Railway service to deploy from a container image rather than the repo source.
 2. Use service names that match the workflow and variable references exactly: `api`, `web`, `ws`, `proxy`, `migrate`, and `cron`.
-3. Point each service at the matching GHCR package for the first deployment:
+3. Point each app service at the matching GHCR package from **your** repo for the first deployment:
 
 | Service | Image |
 |---|---|
 | `api` | `ghcr.io/<owner>/<repo>/api:latest` |
 | `web` | `ghcr.io/<owner>/<repo>/web:latest` |
 | `ws` | `ghcr.io/<owner>/<repo>/ws:latest` |
-| `proxy` | `ghcr.io/<owner>/<repo>/proxy:latest` |
 | `migrate` | `ghcr.io/<owner>/<repo>/migrate:latest` |
 | `cron` | `ghcr.io/<owner>/<repo>/cron:latest` |
 
-The `:latest` tag is only for the first deploy. After that, every push to `main` pins each changed service to the immutable `sha-<commit>` tag by committing one scoped Railway environment patch. The deploy script reads the current service config first and carries forward the existing `deploy` block, so dashboard-managed settings such as replicas, regions, and restart policy are preserved across deploys.
+For the app services, the `:latest` tag is only for the first deploy. After that, every push to `main` pins each changed service to the immutable `sha-<commit>` tag by committing one scoped Railway environment patch. The deploy script reads the current service config first and carries forward the existing `deploy` block, so dashboard-managed settings such as replicas, regions, and restart policy are preserved across deploys.
+
+### The `proxy` service is different: use the template's published image
+
+The proxy contains no application-specific code — it is a generic Caddy config driven entirely by environment variables, and scaffolded apps do not even contain its source. Point the `proxy` Railway service at the image published by the template repo, and keep it on `:latest`:
+
+```text
+ghcr.io/cosborn2/bnh-template/proxy:latest
+```
+
+- All behavior is configured through the env vars in Step 6 (`API_URL`, `WEB_URL`, `WS_URL`, plus `APP_NAME` for the cold-start loading page's title).
+- Your CI never builds or deploys the proxy — it is not in your repo, so change detection never selects it. The `sha-` pinning story above applies to app services only.
+- To pick up a new proxy version published by the template repo, redeploy the `proxy` service from the Railway dashboard — or enable Railway's image auto-update on the service to track `:latest` automatically.
 
 Where the first images come from: CI treats the very first push to `main` as affecting every service, so the initial push publishes all of these images to GHCR. If your repo already had pushes before the CI workflow existed, or you need to reseed the packages, manually dispatch the `Redeploy All Services` workflow once from the Actions tab — it builds and publishes every service image (plus `cron` when `RAILWAY_ENABLE_CRON_REDEPLOY=true`) regardless of what changed, and its images are pushed before its Railway patch step runs, so it seeds GHCR even if the patch fails. Either way, expect the `Deploy to Railway` job of that first run to fail red until Step 8 is complete (the `RAILWAY_TOKEN` environment secret exists and these Railway services are created) — the images are still published before the deploy job runs, so either finish Steps 3 and 8 before your first push or accept one red deploy job on the initial run.
 
@@ -188,9 +199,10 @@ Fallback (Railway source builds): if you prefer to let Railway build from the re
 | `api` | `apps/api/Dockerfile` |
 | `web` | `apps/web/Dockerfile` |
 | `ws` | `apps/ws/Dockerfile` |
-| `proxy` | `infra/proxy/Dockerfile` |
 | `migrate` | `apps/migrate/Dockerfile` |
 | `cron` | `apps/cron/Dockerfile` |
+
+The `proxy` cannot use a source build — its source lives only in the template repo. It always runs the published `ghcr.io/cosborn2/bnh-template/proxy:latest` image.
 
 Note that with source builds you lose the CI guarantees below (images validated before deploy, immutable sha pinning, single-patch deploys), so the GHCR image flow is recommended.
 
@@ -276,11 +288,14 @@ Important build-time note:
 
 ### `proxy`
 
+The proxy runs the template repo's published image (see Step 3), so these variables are its entire configuration surface:
+
 | Variable | Example value | Required | Notes |
 |---|---|---|---|
 | `API_URL` | `http://${{ api.RAILWAY_PRIVATE_DOMAIN }}:3001` | Required | Private upstream for `/api/*`. |
 | `WEB_URL` | `http://${{ web.RAILWAY_PRIVATE_DOMAIN }}:3000` | Required | Private upstream for the Next.js app. |
 | `WS_URL` | `http://${{ ws.RAILWAY_PRIVATE_DOMAIN }}:3002` | Required | Private upstream for `/ws`. |
+| `APP_NAME` | `${{ shared.APP_NAME }}` | Optional but recommended | Rendered into the cold-start loading page's browser-tab title. Falls back to `MyApp`. |
 
 Only `proxy` should get a public domain in this recommended setup.
 
@@ -420,7 +435,7 @@ https://myapp-production.up.railway.app
 On pushes to `main`, `.github/workflows/ci.yml`:
 
 1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI
-2. detects affected services with `turbo query affected` (plus a path filter for `proxy`) and builds a dynamic Docker job matrix — unchanged services spawn no jobs at all
+2. detects affected services with `turbo query affected` and builds a dynamic Docker job matrix — unchanged services spawn no jobs at all (the `proxy` never appears in your app's matrix; its source lives only in the template repo, whose own CI publishes the proxy image)
 3. waits for the `production` GitHub environment before the Docker jobs run, so environment protection rules can gate publishing
 4. builds and pushes each affected image to GHCR under `sha-<commit>` and `latest` tags
 5. after all affected images are pushed, runs a single `railway-deploy` job (also gated on the `production` environment) that resolves every changed Railway service
@@ -440,7 +455,7 @@ Because CI explicitly pins and deploys the service source image, Railway image a
 
 To rebuild and redeploy every service regardless of what changed — after changing `NEXT_PUBLIC_*` build args, rebuilding for a base-image CVE, or recovering a wedged environment — manually trigger the `Redeploy All Services` workflow (`.github/workflows/redeploy.yml`) from the Actions tab:
 
-1. It rebuilds all service images (`web`, `api`, `ws`, `migrate`, `proxy`, plus `cron` when `RAILWAY_ENABLE_CRON_REDEPLOY=true`) from the selected ref.
+1. It rebuilds all service images (`web`, `api`, `ws`, `migrate`, plus `cron` when `RAILWAY_ENABLE_CRON_REDEPLOY=true`) from the selected ref. The `proxy` is skipped in scaffolded apps (no source in the repo) — redeploy it from the Railway dashboard instead if you need to pick up a new template proxy version.
 2. It pushes `sha-<commit>`, `latest`, and a run-unique `sha-<commit>-redeploy-<run>` tag.
 3. It commits one Railway environment patch pointing every service at the run-unique tag. The run-unique tag guarantees the patch differs from the current config, so Railway redeploys even when the same commit is already live (Railway skips services whose config is unchanged).
 

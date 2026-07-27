@@ -2,6 +2,10 @@
 
 Caddy reverse proxy that routes traffic to the web and API services. Includes a cold-start loading page served when upstream services are scaled to zero.
 
+This directory exists only in the template repo. The proxy is fully generic — every behavior is driven by env vars (`API_URL`, `WEB_URL`, `WS_URL`, `APP_NAME` for the loading-page title) — so scaffolded apps do not carry this source; they run the image this repo publishes to `ghcr.io/cosborn2/bnh-template/proxy` (`:latest` recommended). Changes merged here reach consumers when they redeploy their `proxy` service.
+
+Maintainer note: the GHCR `proxy` package must stay **public** so consumers' Railway projects can pull it without credentials.
+
 ## How It Works
 
 - `/api/*` routes to the API service
@@ -46,6 +50,7 @@ docker run --rm -p 8080:8080 \
   -e PORT=8080 \
   -e API_URL=http://localhost:9999 \
   -e WEB_URL=http://localhost:9998 \
+  -e APP_NAME=MyApp \
   app-proxy-test
 ```
 

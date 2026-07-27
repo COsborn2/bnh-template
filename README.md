@@ -92,7 +92,7 @@ bun-template/
 │   ├── shared/    # Shared TypeScript types
 │   └── theme/     # Shared design tokens
 ├── infra/
-│   └── proxy/     # Caddy reverse proxy + loading page
+│   └── proxy/     # Caddy reverse proxy + loading page (template repo only — scaffolded apps use the published image)
 ├── docker-compose.yml
 ├── turbo.json
 └── package.json
@@ -277,7 +277,7 @@ errors return a sanitized 500 and are logged as `api.unhandled_error`.
 | Scheduled cleanup job and retention windows | `apps/cron/src/` |
 | Email templates | `packages/email/` |
 | Shared protocol types | `packages/shared/` |
-| Proxy behavior | `infra/proxy/Caddyfile` |
+| Proxy behavior | `infra/proxy/Caddyfile` in the template repo — the proxy is generic and env-driven, so scaffolded apps run its published image (`ghcr.io/cosborn2/bnh-template/proxy:latest`) rather than carrying the source |
 
 The WebSocket protocol — subscribe/unsubscribe messages, the `presence` server message, the Redis backplane envelope kinds (`event`, `disconnect-user`, `revalidate-topic`, `presence-sync`), and the `4000`-`4999` application close-code convention (no client auto-reconnect; `4001` = disconnected by server) — is documented in [apps/ws/README.md](./apps/ws/README.md).
 

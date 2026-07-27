@@ -58,8 +58,14 @@ jobs:
             "api|apps/api/Dockerfile|."
             "ws|apps/ws/Dockerfile|."
             "migrate|apps/migrate/Dockerfile|."
-            "proxy|infra/proxy/Dockerfile|infra/proxy"
           )
+
+          # The proxy source lives only in the template repo — scaffolded apps
+          # consume the template's published proxy image instead of building
+          # their own (see the proxy section of DEPLOYMENT.md).
+          if [ -f "infra/proxy/Dockerfile" ]; then
+            services+=("proxy|infra/proxy/Dockerfile|infra/proxy")
+          fi
 
           # The cron service is optional on Railway; rebuild and redeploy it
           # only when the repository variable RAILWAY_ENABLE_CRON_REDEPLOY is

@@ -54,7 +54,20 @@ function parseArgs(): { projectName: string; dest: string } {
 
 // --- Copy Template ---
 
-const EXCLUDE_DIRS = new Set([".git", "node_modules", "bin", "docs", ".turbo"]);
+// Template-only directories, excluded at the repo root. `infra` (the Caddy
+// proxy) stays behind because scaffolded apps consume the template repo's
+// published proxy image instead of building their own copy — see the proxy
+// section of DEPLOYMENT.md.
+const EXCLUDE_ROOT_DIRS = new Set(["bin", "docs", "infra"]);
+// VCS internals and build output, excluded wherever they appear so a dirty
+// template checkout can never leak artifacts into a scaffold.
+const EXCLUDE_ANYWHERE_DIRS = new Set([
+  ".git",
+  "node_modules",
+  ".turbo",
+  ".next",
+  "dist",
+]);
 const EXCLUDE_FILES = new Set(["bun.lock", ".env.local"]);
 
 async function copyTemplate(templateDir: string, dest: string) {
@@ -67,8 +80,10 @@ async function copyTemplate(templateDir: string, dest: string) {
       if (rel === "") return true;
 
       // Check directory exclusions
-      const topLevel = rel.split("/")[0];
-      if (EXCLUDE_DIRS.has(topLevel)) return false;
+      const segments = rel.split("/");
+      if (EXCLUDE_ROOT_DIRS.has(segments[0])) return false;
+      if (segments.some((segment) => EXCLUDE_ANYWHERE_DIRS.has(segment)))
+        return false;
 
       // Check file exclusions
       if (EXCLUDE_FILES.has(basename(rel))) return false;
@@ -103,6 +118,7 @@ const REPLACEMENT_FILES = [
   // prune/--filter targets, etc.) must be listed here, or the scaffolded
   // project keeps a dangling @app/ reference after the packages are renamed
   // to the new scope.
+  "apps/api/src/__tests__/change-email.test.ts",
   "apps/api/src/lib/auth.ts",
   "apps/api/src/lib/logger.ts",
   "apps/api/src/lib/redis.ts",
@@ -130,8 +146,6 @@ const REPLACEMENT_FILES = [
   "packages/otel/src/trace.ts",
   "packages/email/src/index.ts",
   "packages/email/src/templates/layout.tsx",
-  "infra/proxy/loading.html",
-  "infra/proxy/loading.template.html",
 
   // CI/CD & Deployment
   ".github/workflows/ci.yml",

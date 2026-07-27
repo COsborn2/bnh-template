@@ -266,8 +266,9 @@ export const auth = betterAuth({
 
   advanced: {
     ipAddress: {
-      // The edge proxy (infra/proxy/Caddyfile) overwrites X-Real-IP and
-      // X-Forwarded-For with the resolved client IP, so these are trustworthy.
+      // The edge proxy (the template's published proxy image — see the proxy
+      // section of DEPLOYMENT.md) overwrites X-Real-IP and X-Forwarded-For
+      // with the resolved client IP, so these are trustworthy.
       ipAddressHeaders: ["x-real-ip", "x-forwarded-for"],
     },
   },

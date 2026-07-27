@@ -11,7 +11,7 @@ type BunServerLike = {
 };
 
 // Best-effort client IP. We trust `x-real-ip` first (set by our edge proxy —
-// see infra/proxy/Caddyfile), then fall back to the left-most
+// the template's published proxy image), then fall back to the left-most
 // `x-forwarded-for` entry, then to Bun's per-request socket address. If
 // nothing is available we use a single shared bucket so an attacker can't
 // strip headers to evade the limit.

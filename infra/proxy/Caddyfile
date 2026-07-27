@@ -111,6 +111,9 @@ Allow: /
 			header X-Loading-Page true
 			root * /srv
 			rewrite * /loading.html
+			# Render the page's Go-template placeholders at request time so the
+			# generic published image brands itself from the APP_NAME env var.
+			templates
 			file_server
 		}
 	}
