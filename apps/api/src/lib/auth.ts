@@ -249,6 +249,13 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
+    // Opt into better-auth's deferred-refresh protocol: GET /get-session is a
+    // pure read (no session-table write on the hot path); the client rolls the
+    // session via an explicit POST when the response says needsRefresh.
+    // Upstream defaults this OFF only for backward compatibility with clients
+    // that never POST — ours is better-auth's own client, which handles it.
+    // Keep this on; removing it reverts to a DB write on every session read
+    // past updateAge.
     deferSessionRefresh: true,
     cookieCache: {
       enabled: true,
