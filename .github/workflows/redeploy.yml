@@ -49,15 +49,17 @@ jobs:
         env:
           NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME || 'MyApp' }}
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test' }}
-          ENABLE_CRON_REDEPLOY: ${{ vars.RAILWAY_ENABLE_CRON_REDEPLOY }}
         run: |
           set -euo pipefail
 
+          # cron is always built and published; the deploy step skips it when
+          # the Railway project has no cron service (OPTIONAL_SERVICES below).
           services=(
             "web|apps/web/Dockerfile|."
             "api|apps/api/Dockerfile|."
             "ws|apps/ws/Dockerfile|."
             "migrate|apps/migrate/Dockerfile|."
+            "cron|apps/cron/Dockerfile|."
           )
 
           # The proxy source lives only in the template repo — scaffolded apps
@@ -65,15 +67,6 @@ jobs:
           # their own (see the proxy section of DEPLOYMENT.md).
           if [ -f "infra/proxy/Dockerfile" ]; then
             services+=("proxy|infra/proxy/Dockerfile|infra/proxy")
-          fi
-
-          # The cron service is optional on Railway; rebuild and redeploy it
-          # only when the repository variable RAILWAY_ENABLE_CRON_REDEPLOY is
-          # set to "true".
-          if [ "${ENABLE_CRON_REDEPLOY}" = "true" ]; then
-            services+=("cron|apps/cron/Dockerfile|.")
-          else
-            echo "Cron service redeploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
           fi
 
           image_prefix="$(printf '%s' "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')"
@@ -112,6 +105,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES: ${{ env.SERVICES }}
+          OPTIONAL_SERVICES: cron
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
           IMAGE_TAG: ${{ env.REDEPLOY_TAG }}
           COMMIT_SHA: ${{ github.sha }}
