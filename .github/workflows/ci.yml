@@ -399,25 +399,10 @@ jobs:
         id: services
         env:
           DEPLOY_MATRIX: ${{ needs.changes.outputs.deploy_matrix }}
-          ENABLE_CRON_REDEPLOY: ${{ vars.RAILWAY_ENABLE_CRON_REDEPLOY }}
         run: |
           set -euo pipefail
 
           services="$(jq -r '[.include[].service] | join(" ")' <<<"$DEPLOY_MATRIX")"
-
-          # The cron service is optional on Railway; deploy it only when the
-          # repository variable RAILWAY_ENABLE_CRON_REDEPLOY is set to "true".
-          if [ "${ENABLE_CRON_REDEPLOY}" != "true" ]; then
-            filtered=""
-            for service in $services; do
-              if [ "$service" = "cron" ]; then
-                echo "Cron service deploy is disabled. Set RAILWAY_ENABLE_CRON_REDEPLOY=true if this Railway project includes the optional cron service."
-                continue
-              fi
-              filtered="${filtered:+${filtered} }${service}"
-            done
-            services="$filtered"
-          fi
 
           echo "list=${services}" >> "$GITHUB_OUTPUT"
           if [ -n "$services" ]; then
@@ -433,6 +418,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES: ${{ steps.services.outputs.list }}
+          OPTIONAL_SERVICES: cron
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
           COMMIT_SHA: ${{ github.sha }}
         run: |

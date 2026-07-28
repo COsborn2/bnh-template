@@ -10,6 +10,12 @@ if [[ -z "$services_input" ]]; then
 fi
 read -r -a services <<<"${services_input//,/ }"
 
+# Services listed here are skipped (not fatal) when the Railway project has no
+# service with that name — used for the optional cron service so repos deploy
+# it if and only if their Railway project includes it.
+optional_input="${OPTIONAL_SERVICES:-}"
+optional_services=" ${optional_input//,/ } "
+
 commit_sha="${COMMIT_SHA:-${GITHUB_SHA:-}}"
 if [[ -z "$commit_sha" ]]; then
   echo "COMMIT_SHA or GITHUB_SHA is required." >&2
@@ -94,6 +100,8 @@ config_response="$(graphql "$config_payload")"
 patch_services='{}'
 images='{}'
 before_images='{}'
+deployed=()
+skipped=()
 
 for service in "${services[@]}"; do
   service_id="$(
@@ -103,6 +111,11 @@ for service in "${services[@]}"; do
   )"
 
   if [[ -z "$service_id" ]]; then
+    if [[ "$optional_services" == *" ${service} "* ]]; then
+      echo "Skipping optional service '${service}': not present in Railway project ${project_id}."
+      skipped+=("$service")
+      continue
+    fi
     echo "Could not find Railway service named '${service}' in project ${project_id}." >&2
     exit 1
   fi
@@ -140,9 +153,19 @@ for service in "${services[@]}"; do
   )"
   images="$(jq -c --arg service "$service" --arg image "$image" '. + {($service): $image}' <<<"$images")"
   before_images="$(jq -c --arg service "$service" --arg image "$before_image" '. + {($service): $image}' <<<"$before_images")"
+  deployed+=("$service")
 done
 
-message="Deploy ${image_tag}: ${services[*]}"
+if [[ ${#deployed[@]} -eq 0 ]]; then
+  echo "No matching Railway services to deploy (skipped optional: ${skipped[*]:-none})."
+  write_output "services" ""
+  write_output "images" "$images"
+  write_output "before_images" "$before_images"
+  write_output "environment_id" "$environment_id"
+  exit 0
+fi
+
+message="Deploy ${image_tag}: ${deployed[*]}"
 
 if [[ "${DRY_RUN:-false}" == "true" ]]; then
   echo "Would commit one environment patch (${message}) in environment ${environment_id}:"
@@ -180,8 +203,8 @@ fi
 echo "Triggered Railway patch workflow: ${patch_workflow_id}"
 echo "Railway patch committed."
 
-echo "Deployed ${services[*]} in one environment patch."
-write_output "services" "${services[*]}"
+echo "Deployed ${deployed[*]} in one environment patch."
+write_output "services" "${deployed[*]}"
 write_output "images" "$images"
 write_output "before_images" "$before_images"
 write_output "patch_workflow_id" "$patch_workflow_id"

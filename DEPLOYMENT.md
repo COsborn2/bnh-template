@@ -188,7 +188,7 @@ ghcr.io/cosborn2/bnh-template/proxy:latest
 - Your CI never builds or deploys the proxy — it is not in your repo, so change detection never selects it. The `sha-` pinning story above applies to app services only.
 - To pick up a new proxy version published by the template repo, redeploy the `proxy` service from the Railway dashboard — or enable Railway's image auto-update on the service to track `:latest` automatically.
 
-Where the first images come from: CI treats the very first push to `main` as affecting every service, so the initial push publishes all of these images to GHCR. If your repo already had pushes before the CI workflow existed, or you need to reseed the packages, manually dispatch the `Redeploy All Services` workflow once from the Actions tab — it builds and publishes every service image (plus `cron` when `RAILWAY_ENABLE_CRON_REDEPLOY=true`) regardless of what changed, and its images are pushed before its Railway patch step runs, so it seeds GHCR even if the patch fails. Either way, expect the `Deploy to Railway` job of that first run to fail red until Step 8 is complete (the `RAILWAY_TOKEN` environment secret exists and these Railway services are created) — the images are still published before the deploy job runs, so either finish Steps 3 and 8 before your first push or accept one red deploy job on the initial run.
+Where the first images come from: CI treats the very first push to `main` as affecting every service, so the initial push publishes all of these images to GHCR. If your repo already had pushes before the CI workflow existed, or you need to reseed the packages, manually dispatch the `Redeploy All Services` workflow once from the Actions tab — it builds and publishes every service image (including `cron`) regardless of what changed, and its images are pushed before its Railway patch step runs, so it seeds GHCR even if the patch fails. Either way, expect the `Deploy to Railway` job of that first run to fail red until Step 8 is complete (the `RAILWAY_TOKEN` environment secret exists and these Railway services are created) — the images are still published before the deploy job runs, so either finish Steps 3 and 8 before your first push or accept one red deploy job on the initial run.
 
 Make sure Railway can pull the images: either make each GHCR package public after its first publish (see the README), or configure registry credentials on the Railway services.
 
@@ -373,7 +373,6 @@ Set these in `Settings -> Secrets and variables -> Actions -> Variables`:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `RAILWAY_ENABLE_CRON_REDEPLOY` | Optional | Set to `true` only if your Railway project includes the optional `cron` service. Gates cron in both CI deploys and the manual redeploy workflow. |
 | `NEXT_PUBLIC_APP_NAME` | Optional but recommended | Baked into the `web` image at build time. Falls back to `MyApp`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Required for production auth | Baked into the `web` image at build time. Falls back to the non-functional placeholder `test` — auth forms in the deployed web image will not work until this variable is set and the image is rebuilt. |
 
@@ -447,7 +446,7 @@ Pull requests build affected images without pushing them, so image validation ha
 
 Concurrency is deploy-safe: pull-request runs cancel superseded runs, but every push to `main` runs to completion (no mid-deploy cancellation). Docker jobs use per-service concurrency groups, and the Railway patch itself is serialized through the ref-independent `railway-deploy` concurrency group, which is shared with the manual redeploy workflow so Railway only ever receives one patch at a time.
 
-The `cron` service is filtered out of Railway deploys unless the repository variable `RAILWAY_ENABLE_CRON_REDEPLOY` is `true`, so projects without the optional cron service are unaffected.
+The `cron` service is optional: the deploy script looks it up in the Railway project by name and skips it with a log notice when it does not exist, so projects without the cron service are unaffected. Once you create a `cron` service in Railway (Step 12), deploys pick it up automatically — no configuration needed.
 
 Because CI explicitly pins and deploys the service source image, Railway image auto-updates are optional in this setup. Keeping them enabled is harmless, but CI no longer depends on Railway's image polling cadence.
 
@@ -455,7 +454,7 @@ Because CI explicitly pins and deploys the service source image, Railway image a
 
 To rebuild and redeploy every service regardless of what changed — after changing `NEXT_PUBLIC_*` build args, rebuilding for a base-image CVE, or recovering a wedged environment — manually trigger the `Redeploy All Services` workflow (`.github/workflows/redeploy.yml`) from the Actions tab:
 
-1. It rebuilds all service images (`web`, `api`, `ws`, `migrate`, plus `cron` when `RAILWAY_ENABLE_CRON_REDEPLOY=true`) from the selected ref. The `proxy` is skipped in scaffolded apps (no source in the repo) — redeploy it from the Railway dashboard instead if you need to pick up a new template proxy version.
+1. It rebuilds all service images (`web`, `api`, `ws`, `migrate`, and `cron`) from the selected ref; `cron` is only patched on Railway if the project has a service with that name. The `proxy` is skipped in scaffolded apps (no source in the repo) — redeploy it from the Railway dashboard instead if you need to pick up a new template proxy version.
 2. It pushes `sha-<commit>`, `latest`, and a run-unique `sha-<commit>-redeploy-<run>` tag.
 3. It commits one Railway environment patch pointing every service at the run-unique tag. The run-unique tag guarantees the patch differs from the current config, so Railway redeploys even when the same commit is already live (Railway skips services whose config is unchanged).
 
@@ -494,7 +493,7 @@ Check these in order:
 
 If you want scheduled jobs:
 
-1. Enable the `cron` service and set `RAILWAY_ENABLE_CRON_REDEPLOY=true` in the GitHub repository variables so deploys include it.
+1. Create the `cron` service in Railway (named exactly `cron`) — deploys detect it by name and include it automatically from then on.
 2. Configure a schedule in Railway using a standard five-field cron expression.
 3. Make sure the process exits when work is finished.
 
