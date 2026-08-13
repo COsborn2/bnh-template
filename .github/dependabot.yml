@@ -10,3 +10,18 @@ updates:
           - "minor"
           - "patch"
     open-pull-requests-limit: 10
+  - package-ecosystem: "docker"
+    directories:
+      - "/apps/api"
+      - "/apps/cron"
+      - "/apps/migrate"
+      - "/apps/web"
+      - "/apps/ws"
+      - "/infra/proxy"
+    schedule:
+      interval: "daily"
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 10
