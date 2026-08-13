@@ -31,9 +31,9 @@ jobs:
           fi
 
           disallowed_files="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
-            --jq '.[] | select(.filename | test("(^|/)package\\.json$|^bun\\.lock$") | not) | .filename')"
+            --jq '.[] | select(.filename | test("(^|/)package\\.json$|^bun\\.lock$|(^|/)Dockerfile$") | not) | .filename')"
           if [[ -n "$disallowed_files" ]]; then
-            echo "Dependabot auto-merge refused: PR changes files outside package manifests and lockfiles."
+            echo "Dependabot auto-merge refused: PR changes files outside package manifests, lockfiles, and Dockerfiles."
             echo "$disallowed_files"
             exit 1
           fi
