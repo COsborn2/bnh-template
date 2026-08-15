@@ -1,10 +1,16 @@
-FROM oven/bun:1-alpine AS pruner
+# next build runs under real Node on glibc, with Bun used only to install
+# dependencies from bun.lock: Bun-as-node cannot run Next 16.3+ builds (a
+# CommonJS-wrapper error on Bun <= 1.3.13, a musl segfault on 1.3.14 —
+# oven-sh/bun#36866), and sharp's native binary in the standalone output only
+# loads on the libc it was installed for, so build and runtime share node:22-slim.
+FROM oven/bun:1.3.10-slim@sha256:5d5863f35ad9b3acceee8dc134fb2b89f07831129eaeec81af2b19a23dabe3e0 AS pruner
 WORKDIR /app
 COPY . .
 RUN bunx turbo prune @app/web --docker
 
-FROM oven/bun:1-alpine AS build
+FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS build
 WORKDIR /app
+COPY --from=pruner /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=pruner /app/out/json/ .
 RUN bun install --frozen-lockfile
 COPY --from=pruner /app/out/full/ .
@@ -15,7 +21,7 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 RUN bun run --filter=@app/web build
 
-FROM node:22-alpine AS runtime
+FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS runtime
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
