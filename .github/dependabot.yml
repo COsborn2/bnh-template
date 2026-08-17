@@ -24,15 +24,9 @@ updates:
       docker-images:
         patterns:
           - "*"
-    # A node major also swaps the Debian/glibc base underneath sharp and the
-    # standalone server, and grouped docker PRs can carry a major under a
-    # minor/patch update-type, slipping past the auto-merge gate's
-    # minor/patch-only check (PR #139 auto-merged a 22->26 node major that
-    # way) — so keep base-image majors out of Dependabot and take them
-    # deliberately.
-    ignore:
-      - dependency-name: "node"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "oven/bun"
-        update-types: ["version-update:semver-major"]
+    # Base-image majors are allowed to open PRs, but they never auto-merge:
+    # dependabot-automerge.yml gates on every updated dependency individually
+    # (minor/patch/digest-only), so a major — or a docker tag bump with no
+    # parseable update-type, like 22-slim -> 26-slim in PR #139 — waits for a
+    # human, with CI's container startup smoke test already run against it.
     open-pull-requests-limit: 10
