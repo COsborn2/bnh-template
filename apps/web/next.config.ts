@@ -24,19 +24,24 @@ const nextConfig: NextConfig = {
   // resolution in a new way.
   //
   // Retiring this workaround: it is redundant once next's tracer resolves
-  // module-sync itself. CI can't detect redundancy passively — the smoke test
-  // passes with the workaround either way — so probe by deletion: on a future
-  // next bump PR, delete this block; if CI's web container startup smoke test
-  // stays green, the tracer has learned module-sync and the removal is safe
-  // to ship.
-  // (Equivalent local check: next build, then confirm
+  // module-sync itself. CI detects that automatically — when a PR changes the
+  // resolved next or @swc/helpers version, the build job rebuilds with
+  // SWC_HELPERS_TRACE_PROBE=1 (which drops this block) and opens a
+  // "remove the workaround" issue if the standalone output ships the esm
+  // files on its own. When that issue appears, delete this block and the
+  // probe step in ci.yml. (Equivalent local check: SWC_HELPERS_TRACE_PROBE=1
+  // next build, then confirm
   // .next/standalone/node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers
-  // contains esm/ without this block.)
-  outputFileTracingIncludes: {
-    "/**": [
-      "../../node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers/**",
-    ],
-  },
+  // contains esm/.)
+  ...(process.env.SWC_HELPERS_TRACE_PROBE === "1"
+    ? {}
+    : {
+        outputFileTracingIncludes: {
+          "/**": [
+            "../../node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers/**",
+          ],
+        },
+      }),
   ...(allowedDevOrigins?.length ? { allowedDevOrigins } : {}),
   async rewrites() {
     return [
