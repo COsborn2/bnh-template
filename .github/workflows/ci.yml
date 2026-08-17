@@ -274,6 +274,10 @@ jobs:
           context: ${{ matrix.context || '.' }}
           file: ${{ matrix.dockerfile }}
           push: false
+          # The web image is loaded into the local daemon so the startup smoke
+          # test below can actually run it.
+          load: ${{ matrix.service == 'web' }}
+          tags: ci-smoke/${{ matrix.service }}:pr
           cache-from: type=gha
           build-args: |
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'MyApp') || '' }}
@@ -329,6 +333,41 @@ jobs:
           build-args: |
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'MyApp') || '' }}
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
+
+      # A successful `docker build` says nothing about whether the image can
+      # boot — next 16.3.1's standalone output shipped without the
+      # @swc/helpers esm files its runtime resolves on Node >= 22.12, so the
+      # server built green and then crashed on startup in production with
+      # MODULE_NOT_FOUND. Run the web image and require /health to answer
+      # before the job may pass (and, on push, before the deploy job may
+      # run). On push this pulls back the image just published to GHCR, so it
+      # validates exactly the bytes production would receive.
+      - name: Smoke test web container startup
+        if: ${{ matrix.service == 'web' }}
+        env:
+          IMAGE: ${{ github.event_name == 'pull_request' && 'ci-smoke/web:pr' || steps.image.outputs.sha_tag }}
+        run: |
+          set -euo pipefail
+
+          docker run -d --name web-smoke -p 3000:3000 "$IMAGE"
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health >/dev/null 2>&1; then
+              echo "web container started and serves /health"
+              docker rm -f web-smoke >/dev/null
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' web-smoke)" != "true" ]; then
+              echo "web container exited before becoming healthy" >&2
+              break
+            fi
+            sleep 2
+          done
+
+          echo "::error::web image failed the startup smoke test"
+          docker inspect -f 'container state: {{.State.Status}} (exit code {{.State.ExitCode}})' web-smoke || true
+          docker logs web-smoke || true
+          exit 1
 
       - name: Summarize published image
         if: ${{ github.event_name == 'push' }}
