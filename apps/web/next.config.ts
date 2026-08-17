@@ -22,6 +22,16 @@ const nextConfig: NextConfig = {
   // including through a symlink makes the copier materialize a partial
   // directory over the symlink in the standalone output, which breaks
   // resolution in a new way.
+  //
+  // Retiring this workaround: it is redundant once next's tracer resolves
+  // module-sync itself. CI can't detect redundancy passively — the smoke test
+  // passes with the workaround either way — so probe by deletion: on a future
+  // next bump PR, delete this block; if CI's web container startup smoke test
+  // stays green, the tracer has learned module-sync and the removal is safe
+  // to ship.
+  // (Equivalent local check: next build, then confirm
+  // .next/standalone/node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers
+  // contains esm/ without this block.)
   outputFileTracingIncludes: {
     "/**": [
       "../../node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers/**",
