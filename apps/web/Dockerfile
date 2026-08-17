@@ -2,7 +2,12 @@
 # dependencies from bun.lock: Bun-as-node cannot run Next 16.3+ builds (a
 # CommonJS-wrapper error on Bun <= 1.3.13, a musl segfault on 1.3.14 —
 # oven-sh/bun#36866), and sharp's native binary in the standalone output only
-# loads on the libc it was installed for, so build and runtime share node:22-slim.
+# loads on the libc it was installed for, so build and runtime share one node base.
+#
+# Base images are digest-pinned; Dependabot proposes CI-gated bumps. Node
+# majors are excluded in dependabot.yml because a node major can also swap
+# the Debian/glibc base underneath sharp and the standalone server — take
+# those deliberately.
 FROM oven/bun:1.3.14-slim@sha256:d56a2534ffd262e92c12fd3249d3924d296d97086da773f821d7d0477435ea04 AS pruner
 WORKDIR /app
 COPY . .
