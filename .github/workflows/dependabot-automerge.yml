@@ -41,8 +41,38 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # steps.metadata.outputs.update-type is the HIGHEST update-type across a
+      # grouped PR, and docker tags like "22-slim" -> "26-slim" produce no
+      # parseable update-type at all — which is how PR #139 auto-merged a node
+      # major under its group's minor/patch label. Gate on every dependency
+      # individually instead: a dependency qualifies only as a proven
+      # semver-minor or semver-patch, or as a digest-only refresh (same
+      # version tag). Anything else — majors and unparseable bumps alike —
+      # leaves the PR open for a human, with CI (including the web container
+      # startup smoke test) already run against it.
+      - name: Check every updated dependency is minor, patch, or digest-only
+        id: gate
+        env:
+          DEPS_JSON: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          set -euo pipefail
+
+          eligible="$(jq -r '
+            if length == 0 then "false" else
+              all(.[];
+                (.updateType == "version-update:semver-minor")
+                or (.updateType == "version-update:semver-patch")
+                or (((.prevVersion // "") != "") and (.prevVersion == .newVersion))
+              ) | tostring
+            end
+          ' <<<"${DEPS_JSON}")"
+
+          jq -r '.[] | "\(.dependencyName): \(.prevVersion // "?") -> \(.newVersion // "?") [\(.updateType // "unknown")]"' <<<"${DEPS_JSON}"
+          echo "eligible=${eligible}" >> "$GITHUB_OUTPUT"
+          echo "eligible=${eligible}"
+
       - name: Approve PR
-        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        if: steps.gate.outputs.eligible == 'true'
         # Approve with a PAT, not GITHUB_TOKEN: github-actions[bot] approvals
         # fail when "Allow GitHub Actions to create and approve pull requests"
         # is disabled and may not satisfy branch protection review requirements.
@@ -52,7 +82,7 @@ jobs:
           GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_PAT }}
 
       - name: Auto-merge minor and patch updates
-        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        if: steps.gate.outputs.eligible == 'true'
         # Keep the squash body controlled so upstream release notes cannot
         # inject commit directives like [skip ci] into main.
         #

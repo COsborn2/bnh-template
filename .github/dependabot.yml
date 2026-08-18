@@ -24,4 +24,9 @@ updates:
       docker-images:
         patterns:
           - "*"
+    # Base-image majors are allowed to open PRs, but they never auto-merge:
+    # dependabot-automerge.yml gates on every updated dependency individually
+    # (minor/patch/digest-only), so a major — or a docker tag bump with no
+    # parseable update-type, like 22-slim -> 26-slim in PR #139 — waits for a
+    # human, with CI's container startup smoke test already run against it.
     open-pull-requests-limit: 10
