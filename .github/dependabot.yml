@@ -9,6 +9,28 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # next 16.3.1 ships a Turbopack tracer that drops the @swc/helpers esm
+      # files from `output: "standalone"` when a package resolves through two
+      # node_modules directories — exactly Bun's isolated store. Node >= 22.12
+      # then resolves those files via the `module-sync` export condition that
+      # @swc/helpers 0.5.23 added, and the web container crash-loops at
+      # startup with MODULE_NOT_FOUND. See vercel/next.js#97358, fixed by
+      # #97372 — merged to canary 2026-08-15, two days after 16.3.1 shipped,
+      # so no stable release carries the fix yet.
+      #
+      # We hold at 16.3.0, which pins @swc/helpers 0.5.15: no `module-sync`,
+      # so resolution lands on the cjs files tracing does ship. apps/web pins
+      # next exactly for the same reason — this entry only suppresses
+      # Dependabot's PRs, it does not stop `bun install` resolving a caret or
+      # tilde range forward on its own.
+      #
+      # Drop this entry once a stable release carrying #97372 is out. The web
+      # container startup smoke test in ci.yml is what verifies that upgrade:
+      # it fails the docker job, and so blocks the deploy job, if the
+      # standalone output regresses again.
+      - dependency-name: "next"
+        versions: ["16.3.1"]
     open-pull-requests-limit: 10
   - package-ecosystem: "docker"
     directories:

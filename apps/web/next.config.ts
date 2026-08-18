@@ -10,38 +10,6 @@ const allowedDevOrigins = process.env.NEXT_ALLOWED_DEV_ORIGINS?.split(",")
 const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
-  // next 16.3.1 bumped @swc/helpers to 0.5.23, whose exports map added a
-  // `module-sync` condition resolving to esm/*.js. At runtime, Node >= 22.12
-  // (require(esm) enabled) resolves require("@swc/helpers/...") through that
-  // condition to the esm files, but the build-time file tracer still resolves
-  // the `default` condition and ships only cjs/*.cjs — so the standalone
-  // server dies on boot with MODULE_NOT_FOUND for @swc/helpers/esm/*. Force
-  // the complete package (cjs + esm + package.json) from Bun's isolated store
-  // into the trace until the tracer understands module-sync. The glob must
-  // target the real store directory, not a node_modules symlink to it —
-  // including through a symlink makes the copier materialize a partial
-  // directory over the symlink in the standalone output, which breaks
-  // resolution in a new way.
-  //
-  // Retiring this workaround: it is redundant once next's tracer resolves
-  // module-sync itself. CI detects that automatically — when a PR changes the
-  // resolved next or @swc/helpers version, the build job rebuilds with
-  // SWC_HELPERS_TRACE_PROBE=1 (which drops this block) and opens a
-  // "remove the workaround" issue if the standalone output ships the esm
-  // files on its own. When that issue appears, delete this block and the
-  // probe step in ci.yml. (Equivalent local check: SWC_HELPERS_TRACE_PROBE=1
-  // next build, then confirm
-  // .next/standalone/node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers
-  // contains esm/.)
-  ...(process.env.SWC_HELPERS_TRACE_PROBE === "1"
-    ? {}
-    : {
-        outputFileTracingIncludes: {
-          "/**": [
-            "../../node_modules/.bun/@swc+helpers@*/node_modules/@swc/helpers/**",
-          ],
-        },
-      }),
   ...(allowedDevOrigins?.length ? { allowedDevOrigins } : {}),
   async rewrites() {
     return [
