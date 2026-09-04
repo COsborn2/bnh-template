@@ -3,12 +3,12 @@
 # CommonJS-wrapper error on Bun <= 1.3.13, a musl segfault on 1.3.14 —
 # oven-sh/bun#36866), and sharp's native binary in the standalone output only
 # loads on the libc it was installed for, so build and runtime share node:22-slim.
-FROM oven/bun:1.4.0-slim@sha256:e0ee68d16ccb9927bf02aa7dd8fd4bf3369ee6d46da04faa72b05ce8bfd135f6 AS pruner
+FROM oven/bun:1.4.1-slim@sha256:887d0f37f674c69984be4e397fef29ca0d74df1e75155431abbe857258bffde5 AS pruner
 WORKDIR /app
 COPY . .
 RUN bunx turbo prune @app/web --docker
 
-FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS build
+FROM node:26-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146 AS build
 WORKDIR /app
 COPY --from=pruner /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=pruner /app/out/json/ .
@@ -21,7 +21,7 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 RUN bun run --filter=@app/web build
 
-FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS runtime
+FROM node:26-slim@sha256:c0753125a3789977aefe869cbebccf70e3cfd7ea84ca48547458f02e4f1d7146 AS runtime
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
