@@ -9,17 +9,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # next 16.3.1 shipped a standalone-output tracer bug (vercel/next.js#97358,
-      # fixed in 16.3.2 by #97372) that dropped the @swc/helpers esm files
-      # Node >= 22.12 resolves through the `module-sync` export condition under
-      # Bun's isolated store, so the web container crash-looped at startup with
-      # MODULE_NOT_FOUND. apps/web pins next exactly so `bun install` cannot
-      # drift onto it; this entry only stops Dependabot from proposing 16.3.1.
-      # Dependabot still proposes later patch releases, and the web-container
-      # startup smoke test in ci.yml (docker job) is what vets each one.
-      - dependency-name: "next"
-        versions: ["16.3.1"]
     open-pull-requests-limit: 10
   - package-ecosystem: "docker"
     directories:
