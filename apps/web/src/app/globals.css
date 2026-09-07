@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&display=swap');
 @import "./colors.css";
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Fraunces", serif;
-  --font-body: "DM Sans", sans-serif;
+  /* Font faces are self-hosted through next/font in app/layout.tsx, which
+     sets --font-fraunces / --font-dm-sans on <html>. */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: 6px;
   --radius-md: 10px;

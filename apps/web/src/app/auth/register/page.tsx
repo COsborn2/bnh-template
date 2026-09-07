@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { getTurnstileTokenResetValue } from "@/lib/turnstile";
 import { GoogleSignInButton } from "@/components/ui/google-sign-in-button";
 import { Input } from "@/components/ui/input";
 import { TurnstileSubmitButton } from "@/components/ui/turnstile-submit-button";
@@ -22,7 +23,9 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState(() =>
+    getTurnstileTokenResetValue(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+  );
   const [usernameStatus, setUsernameStatus] = useState<
     "idle" | "checking" | "available" | "taken"
   >("idle");
@@ -130,7 +133,8 @@ export default function RegisterPage() {
       <TurnstileSubmitButton
         isLoading={isLoading}
         loadingText="Creating account..."
-        onToken={setTurnstileToken}
+        token={turnstileToken}
+        onTokenChange={setTurnstileToken}
         error={error}
         className="mt-1"
       >
