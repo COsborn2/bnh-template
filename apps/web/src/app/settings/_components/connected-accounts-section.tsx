@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { GoogleLogo } from "@/components/ui/google-sign-in-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConsumedErrorParam } from "@/hooks/use-consumed-error-param";
 import { describeLinkError } from "./errors";
 import { StatusPill } from "./status-pill";
 import type { LinkedAccount } from "./use-accounts";
@@ -36,22 +37,8 @@ export function ConnectedAccountsSection({
   const [error, setError] = useState("");
 
   // A failed link-social callback lands back on /settings?error=<code>
-  // (errorCallbackURL below). Surface it in this card's error slot and strip
-  // the param so a refresh doesn't resurface a stale notice.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const message = describeLinkError(params.get("error"));
-    if (!message) return;
-    setError(message);
-    params.delete("error");
-    params.delete("error_description");
-    const query = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + (query ? `?${query}` : ""),
-    );
-  }, []);
+  // (errorCallbackURL below). Surface it in this card's error slot.
+  const linkError = useConsumedErrorParam(describeLinkError);
 
   if (!accounts) {
     return (
@@ -199,7 +186,9 @@ export function ConnectedAccountsSection({
         ))}
       </div>
 
-      {error && <p className="mt-4 text-sm text-accent-rose">{error}</p>}
+      {(error || linkError) && (
+        <p className="mt-4 text-sm text-accent-rose">{error || linkError}</p>
+      )}
     </Card>
   );
 }

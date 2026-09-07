@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Suspense,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  type FormEvent,
-} from "react";
+import { Suspense, useState, useEffect, useRef, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
@@ -60,29 +53,29 @@ function VerifyEmailContent() {
     setTurnstileToken(getTurnstileTokenResetValue(siteKey));
   }
 
-  const verifyToken = useCallback(async () => {
-    if (!token) return;
-    try {
-      const { error } = await authClient.verifyEmail({
-        query: { token },
-      });
-      if (error) {
-        setStatus("error");
-        setMessage(error.message || "Verification failed");
-      } else {
-        setStatus("success");
-      }
-    } catch {
-      setStatus("error");
-      setMessage("Verification failed");
-    }
-  }, [token]);
-
   useEffect(() => {
-    if (token) {
-      verifyToken();
-    }
-  }, [token, verifyToken]);
+    if (!token) return;
+    let cancelled = false;
+    authClient
+      .verifyEmail({ query: { token } })
+      .then(({ error }) => {
+        if (cancelled) return;
+        if (error) {
+          setStatus("error");
+          setMessage(error.message || "Verification failed");
+        } else {
+          setStatus("success");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStatus("error");
+        setMessage("Verification failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   async function handleResend(e: FormEvent) {
     e.preventDefault();

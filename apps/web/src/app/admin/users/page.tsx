@@ -47,7 +47,6 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [verifiedFilter, setVerifiedFilter] = useState("all");
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
   const [banReason, setBanReason] = useState("");
   const [banDuration, setBanDuration] = useState<string>("");
@@ -74,38 +73,58 @@ export default function AdminUsersPage() {
   // Responses can arrive out of order while typing (each debounced keystroke
   // and filter change is its own request); only the latest one may land.
   const requestRef = useRef(0);
-
-  const fetchUsers = useCallback(async () => {
-    const requestId = ++requestRef.current;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-        offset: String(page * PAGE_SIZE),
-      });
-      if (debouncedSearch) params.set("search", debouncedSearch);
-      if (roleFilter !== "all") params.set("role", roleFilter);
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      if (verifiedFilter !== "all") params.set("verified", verifiedFilter);
-
-      const data = await api<AdminUsersResponse>(`/admin/users?${params}`);
-      if (requestId !== requestRef.current) return;
-      setUsers(data.users);
-      setTotal(data.total);
-    } catch (err: unknown) {
-      if (requestId !== requestRef.current) return;
-      toast(
-        err instanceof Error ? err.message : "Failed to fetch users",
-        "error",
-      );
-    } finally {
-      if (requestId === requestRef.current) setLoading(false);
-    }
-  }, [page, debouncedSearch, roleFilter, statusFilter, verifiedFilter]);
+  // Bumped by actions (ban/unban) to refetch the current page.
+  const [refreshTick, setRefreshTick] = useState(0);
+  // Loading is derived rather than set inside the fetch effect: the rows on
+  // screen belong to `loadedKey`, so any change to the query (or a refresh)
+  // shows the loading state until the matching response lands.
+  const queryKey = [
+    page,
+    debouncedSearch,
+    roleFilter,
+    statusFilter,
+    verifiedFilter,
+    refreshTick,
+  ].join("|");
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== queryKey;
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    const requestId = ++requestRef.current;
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (roleFilter !== "all") params.set("role", roleFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (verifiedFilter !== "all") params.set("verified", verifiedFilter);
+
+    api<AdminUsersResponse>(`/admin/users?${params}`)
+      .then((data) => {
+        if (requestId !== requestRef.current) return;
+        setUsers(data.users);
+        setTotal(data.total);
+        setLoadedKey(queryKey);
+      })
+      .catch((err: unknown) => {
+        if (requestId !== requestRef.current) return;
+        toast(
+          err instanceof Error ? err.message : "Failed to fetch users",
+          "error",
+        );
+        setLoadedKey(queryKey);
+      });
+  }, [
+    page,
+    debouncedSearch,
+    roleFilter,
+    statusFilter,
+    verifiedFilter,
+    queryKey,
+  ]);
+
+  const refreshUsers = () => setRefreshTick((tick) => tick + 1);
 
   // Rows navigate to the detail page via router.push from the actions menu,
   // which Next never prefetches (only <Link> targets are): warm the route on
@@ -134,7 +153,7 @@ export default function AdminUsersPage() {
         return;
       }
       toast("User unbanned", "success");
-      fetchUsers();
+      refreshUsers();
     } catch (err: unknown) {
       toast(
         err instanceof Error ? err.message : "Failed to unban user",
@@ -162,7 +181,7 @@ export default function AdminUsersPage() {
       }
       toast(`${banTarget.name ?? "User"} banned`, "success");
       closeBanDialog();
-      fetchUsers();
+      refreshUsers();
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to ban user", "error");
     }

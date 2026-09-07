@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { describeAuthCallbackError } from "@/lib/auth-errors";
+import { useConsumedErrorParam } from "@/hooks/use-consumed-error-param";
 import { getTurnstileTokenResetValue } from "@/lib/turnstile";
 import { GoogleSignInButton } from "@/components/ui/google-sign-in-button";
 import { Input } from "@/components/ui/input";
@@ -16,32 +17,14 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [callbackError, setCallbackError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState(() =>
     getTurnstileTokenResetValue(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
   );
 
   // The API's onAPIError.errorURL lands OAuth callback failures here with
-  // ?error=<code>. Read it after mount instead of useSearchParams — that hook
-  // would client-render everything up to a Suspense boundary and drop the
-  // form from the statically prerendered HTML. The param is stripped so a
-  // refresh doesn't resurface a stale notice.
-  // (A future authClient.linkSocial call must pass its own errorCallbackURL,
-  // otherwise its failures land here too.)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const message = describeAuthCallbackError(params.get("error"));
-    if (!message) return;
-    setCallbackError(message);
-    params.delete("error");
-    params.delete("error_description");
-    const query = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + (query ? `?${query}` : ""),
-    );
-  }, []);
+  // ?error=<code>. (A future authClient.linkSocial call must pass its own
+  // errorCallbackURL, otherwise its failures land here too.)
+  const callbackError = useConsumedErrorParam(describeAuthCallbackError);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

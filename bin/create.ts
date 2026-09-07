@@ -120,6 +120,7 @@ const REPLACEMENT_FILES = [
   // to the new scope.
   "apps/api/src/__tests__/change-email.test.ts",
   "apps/api/src/lib/auth.ts",
+  "apps/api/src/lib/config.ts",
   "apps/api/src/lib/logger.ts",
   "apps/api/src/lib/redis.ts",
   "apps/api/src/middleware/trace-http.ts",
@@ -132,6 +133,7 @@ const REPLACEMENT_FILES = [
   "apps/cron/src/retention.ts",
   "apps/web/src/app/layout.tsx",
   "apps/web/src/app/auth/layout.tsx",
+  "apps/web/src/components/auth/auth-shell.tsx",
   "apps/web/src/app/page.tsx",
   "apps/web/src/app/settings/_components/errors.ts",
   "apps/web/src/app/manifest.json",

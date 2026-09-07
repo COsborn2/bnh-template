@@ -30,6 +30,7 @@
     "typescript-eslint": "^8.68.0"
   },
   "dependencies": {
+    "eslint-plugin-react-hooks": "^7.1.1",
     "nanoid": "^6.0.1",
     "postcss": "^8.5.26"
   }

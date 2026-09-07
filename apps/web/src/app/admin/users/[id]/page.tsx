@@ -49,11 +49,18 @@ export default function UserDetailPage() {
   const { data: sessionData } = useSession();
 
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
+  // Loading is derived from which user the data on screen belongs to, so the
+  // fetch callbacks never set loading state synchronously when the effect
+  // below calls them; a refetch after an action updates in place instead.
+  const [userLoadedFor, setUserLoadedFor] = useState<string | null>(null);
   const [userError, setUserError] = useState(false);
+  const userLoading = userLoadedFor !== userId;
 
   const [sessions, setSessions] = useState<AdminSession[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsLoadedFor, setSessionsLoadedFor] = useState<string | null>(
+    null,
+  );
+  const sessionsLoading = sessionsLoadedFor !== userId;
 
   // Role change
   const [selectedRole, setSelectedRole] = useState<string>("user");
@@ -75,30 +82,27 @@ export default function UserDetailPage() {
 
   // Fetch user
   const fetchUser = useCallback(async () => {
-    setUserLoading(true);
-    setUserError(false);
     try {
       const res = await authClient.admin.getUser(
         { query: { id: userId } } as Parameters<typeof authClient.admin.getUser>[0],
       );
       if (res.error || !res.data) {
         setUserError(true);
-        setUserLoading(false);
         return;
       }
       const u = res.data as AdminUser;
       setUser(u);
+      setUserError(false);
       setSelectedRole((u.role as string) ?? "user");
     } catch {
       setUserError(true);
     } finally {
-      setUserLoading(false);
+      setUserLoadedFor(userId);
     }
   }, [userId]);
 
   // Fetch sessions
   const fetchSessions = useCallback(async () => {
-    setSessionsLoading(true);
     try {
       const res = await authClient.admin.listUserSessions(
         { userId } as Parameters<
@@ -107,14 +111,13 @@ export default function UserDetailPage() {
       );
       if (res.error) {
         toast(res.error.message ?? "Failed to fetch sessions", "error");
-        setSessionsLoading(false);
         return;
       }
       setSessions(res.data.sessions ?? []);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to fetch sessions", "error");
     } finally {
-      setSessionsLoading(false);
+      setSessionsLoadedFor(userId);
     }
   }, [userId]);
 
