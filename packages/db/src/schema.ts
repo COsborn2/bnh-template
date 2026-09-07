@@ -4,6 +4,7 @@ import {
   timestamp,
   boolean,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -28,24 +29,31 @@ export const user = pgTable("user", {
   banExpires: timestamp("ban_expires", { withTimezone: true }),
 });
 
-export const session = pgTable("session", {
-  id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  // admin plugin
-  impersonatedBy: text("impersonated_by"),
-});
+export const session = pgTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // admin plugin
+    impersonatedBy: text("impersonated_by"),
+  },
+  // Postgres does not auto-index FK child columns: without this, revoking a
+  // user's sessions (logout-everywhere, admin, account deletion cascade)
+  // scans the whole table.
+  (table) => [index("session_user_id_idx").on(table.userId)],
+);
 
 export const account = pgTable(
   "account",
@@ -74,7 +82,11 @@ export const account = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [unique().on(table.providerId, table.accountId)],
+  (table) => [
+    unique().on(table.providerId, table.accountId),
+    // FK-cascade support: user deletion and linked-account listings.
+    index("account_user_id_idx").on(table.userId),
+  ],
 );
 
 export const verification = pgTable("verification", {

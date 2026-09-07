@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import type { BetterAuthRateLimitStorage, RateLimit } from "better-auth";
+import type { BetterAuthRateLimitStorage } from "better-auth";
 import type Redis from "ioredis";
 import {
   RateLimiterMemory,
@@ -33,7 +33,6 @@ export interface RateLimitPolicy {
 const DAY = 24 * 60 * 60;
 const HOUR = 60 * 60;
 const REDIS_PREFIX = "app:rl";
-const BETTER_AUTH_RATE_LIMIT_TTL_SECONDS = DAY;
 const BETTER_AUTH_RATE_LIMIT_PREFIX = `${REDIS_PREFIX}:better-auth`;
 const REDIS_COMMAND_TIMEOUT_MS = 500;
 
@@ -89,10 +88,6 @@ interface LimiterEntry {
 }
 
 let limiterEntries = new Map<string, LimiterEntry>();
-let betterAuthRateLimitMemory = new Map<
-  string,
-  { value: RateLimit; expiresAt: number }
->();
 let betterAuthConsumeMemory = new Map<
   string,
   { count: number; resetAt: number }
@@ -186,14 +181,12 @@ export function makeRateLimitKey(
   }
 }
 
-function betterAuthRateLimitKey(key: string): string {
-  return `${BETTER_AUTH_RATE_LIMIT_PREFIX}:${key}`;
-}
-
 /**
- * Dedicated counter keyspace for the atomic `consume` path, separate from the
- * JSON records the legacy `get`/`set` contract stores under
- * betterAuthRateLimitKey.
+ * Counter keyspace for the atomic `consume` path. The `:c:` segment keeps
+ * these counters distinct from the JSON records the retired `get`/`set`
+ * contract (better-auth < 1.7) wrote under the bare prefix, which may linger
+ * in Redis until their TTL expires; it must not change, or live windows reset
+ * on deploy.
  */
 function betterAuthConsumeKey(key: string): string {
   return `${BETTER_AUTH_RATE_LIMIT_PREFIX}:c:${key}`;
@@ -217,36 +210,6 @@ if ttl < 0 then
 end
 return {count, ttl}
 `;
-
-function isBetterAuthRateLimit(value: unknown): value is RateLimit {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "key" in value &&
-    "count" in value &&
-    "lastRequest" in value &&
-    typeof value.key === "string" &&
-    typeof value.count === "number" &&
-    typeof value.lastRequest === "number"
-  );
-}
-
-function readBetterAuthMemory(key: string): RateLimit | null {
-  const entry = betterAuthRateLimitMemory.get(key);
-  if (!entry) return null;
-  if (Date.now() >= entry.expiresAt) {
-    betterAuthRateLimitMemory.delete(key);
-    return null;
-  }
-  return entry.value;
-}
-
-function writeBetterAuthMemory(key: string, value: RateLimit): void {
-  betterAuthRateLimitMemory.set(key, {
-    value,
-    expiresAt: Date.now() + BETTER_AUTH_RATE_LIMIT_TTL_SECONDS * 1000,
-  });
-}
 
 interface ConsumeRule {
   window: number;
@@ -304,49 +267,13 @@ function withRedisTimeout<T>(operation: Promise<T>): Promise<T> {
 /**
  * Redis-backed storage for better-auth's built-in rate limiter, replacing
  * `storage: "database"` (which wrote a Postgres row per counted auth
- * request). Falls back to an in-process map when Redis is unset or a command
- * fails/times out, so auth keeps working through a Redis outage.
- *
- * `consume` is the path better-auth actually uses (an atomic single-step
- * check-and-increment, strict under concurrent bursts); `get`/`set` are kept
- * for backwards compatibility with the storage contract.
+ * request). Implements the `consume` contract (better-auth >= 1.7 dropped the
+ * legacy `get`/`set` members): an atomic single-step check-and-increment,
+ * strict under concurrent bursts. Falls back to an in-process counter when
+ * Redis is unset or a command fails/times out, so auth keeps working through
+ * a Redis outage.
  */
 export const betterAuthRateLimitStorage: BetterAuthRateLimitStorage = {
-  async get(key) {
-    const redis = getRedisClient();
-    if (!redis) return readBetterAuthMemory(key);
-
-    try {
-      const raw = await withRedisTimeout(redis.get(betterAuthRateLimitKey(key)));
-      if (!raw) return null;
-      const parsed: unknown = JSON.parse(raw);
-      return isBetterAuthRateLimit(parsed) ? parsed : null;
-    } catch (err) {
-      console.error("[rate-limit] Better Auth Redis get failed:", err);
-      return readBetterAuthMemory(key);
-    }
-  },
-  async set(key, value) {
-    const redis = getRedisClient();
-    if (!redis) {
-      writeBetterAuthMemory(key, value);
-      return;
-    }
-
-    try {
-      await withRedisTimeout(
-        redis.set(
-          betterAuthRateLimitKey(key),
-          JSON.stringify(value),
-          "EX",
-          BETTER_AUTH_RATE_LIMIT_TTL_SECONDS,
-        ),
-      );
-    } catch (err) {
-      console.error("[rate-limit] Better Auth Redis set failed:", err);
-      writeBetterAuthMemory(key, value);
-    }
-  },
   async consume(key, rule) {
     const redis = getRedisClient();
     if (!redis) return consumeBetterAuthMemory(key, rule);
@@ -484,6 +411,5 @@ export function formatRateLimitReason(error: RateLimitError): string {
 
 export function resetRateLimitersForTests(): void {
   limiterEntries = new Map();
-  betterAuthRateLimitMemory = new Map();
   betterAuthConsumeMemory = new Map();
 }
