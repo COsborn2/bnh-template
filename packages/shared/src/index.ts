@@ -1,3 +1,5 @@
+// This package is marked `sideEffects: false`, so every module here must be
+// free of top-level side effects (no global mutation or registration at import).
 export {
   type SubscribeMessage,
   type UnsubscribeMessage,

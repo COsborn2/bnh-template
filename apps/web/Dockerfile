@@ -18,6 +18,7 @@ COPY --from=pruner /app/tsconfig.base.json ./
 
 ARG NEXT_PUBLIC_APP_NAME
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ARG NEXT_PUBLIC_APP_URL
 
 RUN bun run --filter=@app/web build
 

@@ -159,6 +159,7 @@ const REPLACEMENT_FILES = [
 
   // Other
   "scripts/check-peer-deps.ts",
+  "scripts/integration-test.sh",
   "apps/api/src/__tests__/setup.ts",
   "apps/cron/src/cleanup.ts",
   "packages/shared/src/index.ts",
