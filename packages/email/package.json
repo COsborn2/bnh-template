@@ -10,7 +10,8 @@
   },
   "scripts": {
     "dev": "email dev --dir src/templates --port 4000",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "resend": "^6.20.0",

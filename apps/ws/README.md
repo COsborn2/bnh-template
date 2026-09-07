@@ -80,7 +80,7 @@ relay data. Helpers in `apps/api/src/lib/redis.ts`:
 
 - `publishEvent(topic, data)` — fan `data` out to every subscriber (`{ kind: "event", data }`)
 - `publishDisconnectUser(topic, userId)` — close that user's sockets on every instance with close code `4001` (clients do not auto-reconnect)
-- `publishRevalidateTopic(topic)` — every instance re-runs `POST {WS_AUTHORIZE_URL}` per subscriber and force-unsubscribes anyone whose access was revoked (the client receives an `access_revoked` error)
+- `publishRevalidateTopic(topic)` — every instance re-runs `POST {WS_AUTHORIZE_URL}` once per subscribed user and force-unsubscribes anyone whose access was revoked (the client receives an `access_revoked` error). Sweeps are debounced 300 ms per topic, a message that lands mid-sweep queues exactly one follow-up, and at most 8 authorize calls are in flight per sweep — so a burst of permission changes costs one or two sweeps, not one per message, and a large topic can't flood the API. The scheduler lives in `src/revalidate-scheduler.ts` with unit tests; per-topic state is dropped when the topic's last local subscriber leaves.
 
 Envelopes may carry an additive `_otel` field with W3C trace context so one
 trace spans api → redis → ws → clients; consumers switch on `kind` and
@@ -109,6 +109,8 @@ If Redis isn't running you'll see:
 ```
 
 Start Redis with `docker compose up -d redis` and the server will reconnect automatically.
+
+Locally, `apps/web/next.config.ts` rewrites `/ws` to `WS_INTERNAL_URL` (default `http://localhost:3002`), so Caddy is not needed for `bun dev`.
 
 ## Environment Variables
 
@@ -186,7 +188,7 @@ auto-reconnect:
 **Infrastructure (keep):**
 - `apps/ws/` — the entire WebSocket server
 - `apps/api/src/routes/ws.ts` — the `/api/ws/authorize` and `/api/ws/events` endpoints (replace the logic inside)
-- `apps/web/src/hooks/use-websocket.ts` — WebSocket client hook with auto-reconnect
+- `apps/web/src/hooks/use-websocket.ts` — WebSocket client hook: auto-reconnect with jittered backoff; reconnects immediately when the network returns or the tab becomes visible; never after a 4xxx close
 
 ## Adding a New Real-Time Feature
 
@@ -194,6 +196,7 @@ auto-reconnect:
 2. Add event handling in `POST /api/ws/events` for messages on that topic
 3. Use `publishEvent(topic, data)` from `apps/api/src/lib/redis.ts` anywhere in the API to push events
 4. Subscribe to the topic from the client using the `useWebSocket` hook
+5. Pass `onReconnect` to `useWebSocket` and refetch whatever the topic feeds; surface a refetch failure to the user (the socket has no replay buffer)
 
 Do NOT modify `apps/ws/` for business logic.
 
@@ -230,7 +233,7 @@ Message protocol (server to client):
 Redis backplane envelopes (API -> WS instances, see RealtimeMessage in @app/shared):
   { kind: "event", data: any }            fan out to subscribers
   { kind: "disconnect-user", userId }     close that user's sockets everywhere (code 4001)
-  { kind: "revalidate-topic" }            re-run authorization for every subscriber
+  { kind: "revalidate-topic" }            re-run authorization for every subscriber (debounced per topic)
   { kind: "presence-sync" }               re-merge and re-broadcast presence
 
 To add a new real-time feature:
@@ -239,6 +242,8 @@ To add a new real-time feature:
 3. Use publishEvent(topic, data) from apps/api/src/lib/redis.ts to push events
    (publishDisconnectUser / publishRevalidateTopic for control messages)
 4. Subscribe to the topic from the client using the useWebSocket hook
+5. Pass onReconnect to useWebSocket and refetch whatever the topic feeds;
+   surface a refetch failure to the user (the socket has no replay buffer)
 
 Do NOT modify apps/ws/ for business logic. All domain logic belongs in apps/api/.
 ~~~
