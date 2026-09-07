@@ -64,6 +64,71 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
+/* Browsers paint their own error styling the moment a `required` field goes
+   :user-invalid — Firefox draws a red glow, and it lands on fields nobody has
+   finished typing in yet (every auth form). We report problems in copy and in
+   each field's own error prop, so the UA layer is noise that reads as "you
+   broke something". Drop it and let our focus styles stand; `outline: none`
+   here is safe because the focus ring is drawn by the author-level rules,
+   which win on specificity. */
+input:user-invalid,
+textarea:user-invalid,
+select:user-invalid {
+  box-shadow: none;
+  outline: none;
+}
+/* Firefox < 88 spells it :-moz-ui-invalid; kept in its own rule so an engine
+   that doesn't parse it discards only this block, not the one above. */
+input:-moz-ui-invalid,
+textarea:-moz-ui-invalid,
+select:-moz-ui-invalid {
+  box-shadow: none;
+  outline: none;
+}
+
+/* Modal overlay (components/ui/modal-overlay.tsx). Stacking contract for
+   fixed chrome, so nothing paints over what should be on top:
+     header / menus   30–50  (impersonation banner z-40, ActionsMenu z-50)
+     modals           100    (Modal default via --modal-z; nested hosts 200)
+     confirmations    300    (ConfirmDialog — may open from inside a modal)
+     toasts           400    (Toaster — global feedback clears everything)
+   The dim and blur live here rather than on the card so a loading placeholder
+   for a lazily loaded modal can't drift from the real thing. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--modal-z, 100);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  overscroll-behavior: none;
+}
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: 10px;
+  }
+}
+
+/* Held on <html>/<body> by the refcounted lock in modal-overlay.tsx while any
+   overlay is mounted; the :has() form also covers an overlay rendered without
+   the hook. */
+html.modal-open,
+body.modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+@supports selector(:has(*)) {
+  html:has(.modal-overlay),
+  body:has(.modal-overlay) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
 /* Focus ring */
 .focus-ring:focus-visible {
   outline: 2px solid var(--color-accent-purple);

@@ -4,29 +4,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient, useSession } from "@/lib/auth-client";
+import { api } from "@/lib/api";
+import { PAGE_SIZE } from "@/lib/pagination";
 import { DataTable } from "@/components/ui/data-table";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
 import { toast } from "@/components/ui/toaster";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 
+/** Row shape of GET /api/admin/users; dates are ISO strings. */
 interface AdminUser {
   id: string;
   name: string | null;
   email: string;
   emailVerified: boolean;
-  username?: string | null;
+  username: string | null;
   role: string;
   banned: boolean;
   banReason: string | null;
   banExpires: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
-const LIMIT = 20;
+interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -37,6 +45,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [verifiedFilter, setVerifiedFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [banTarget, setBanTarget] = useState<AdminUser | null>(null);
@@ -62,66 +71,60 @@ export default function AdminUsersPage() {
     };
   }, [search]);
 
+  // Responses can arrive out of order while typing (each debounced keystroke
+  // and filter change is its own request); only the latest one may land.
+  const requestRef = useRef(0);
+
   const fetchUsers = useCallback(async () => {
+    const requestId = ++requestRef.current;
     setLoading(true);
     try {
-      const query: Record<string, string | number> = {
-        limit: LIMIT,
-        offset: page * LIMIT,
-        sortBy: "createdAt",
-        sortDirection: "desc",
-      };
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(page * PAGE_SIZE),
+      });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (verifiedFilter !== "all") params.set("verified", verifiedFilter);
 
-      if (debouncedSearch) {
-        query.searchValue = debouncedSearch;
-        query.searchField = "name";
-        query.searchOperator = "contains";
-      }
-
-      // API supports only one filterField per call
-      if (roleFilter !== "all") {
-        query.filterField = "role";
-        query.filterValue = roleFilter;
-      } else if (statusFilter !== "all") {
-        query.filterField = "banned";
-        query.filterValue = statusFilter === "banned" ? "true" : "false";
-      }
-
-      const res = await authClient.admin.listUsers({ query } as Parameters<typeof authClient.admin.listUsers>[0]);
-
-      if (res.error) {
-        toast(res.error.message ?? "Failed to fetch users", "error");
-        setLoading(false);
-        return;
-      }
-
-      let data: AdminUser[] = (res.data as { users?: AdminUser[] })?.users ?? [];
-      const fetchedTotal: number = (res.data as { total?: number })?.total ?? data.length;
-
-      // Client-side status filter when role filter consumed the API filter slot
-      if (roleFilter !== "all" && statusFilter !== "all") {
-        data = data.filter((u: AdminUser) =>
-          statusFilter === "banned" ? u.banned === true : u.banned !== true,
-        );
-      }
-
-      setUsers(data);
-      setTotal(fetchedTotal);
+      const data = await api<AdminUsersResponse>(`/admin/users?${params}`);
+      if (requestId !== requestRef.current) return;
+      setUsers(data.users);
+      setTotal(data.total);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to fetch users", "error");
+      if (requestId !== requestRef.current) return;
+      toast(
+        err instanceof Error ? err.message : "Failed to fetch users",
+        "error",
+      );
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
-  }, [page, debouncedSearch, roleFilter, statusFilter]);
+  }, [page, debouncedSearch, roleFilter, statusFilter, verifiedFilter]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(0);
-  }, [roleFilter, statusFilter]);
+  // Rows navigate to the detail page via router.push from the actions menu,
+  // which Next never prefetches (only <Link> targets are): warm the route on
+  // hover/focus, once per row.
+  const prefetchedIds = useRef(new Set<string>());
+  const handleRowIntent = useCallback(
+    (user: AdminUser) => {
+      if (prefetchedIds.current.has(user.id)) return;
+      prefetchedIds.current.add(user.id);
+      router.prefetch(`/admin/users/${user.id}`);
+    },
+    [router],
+  );
+
+  function closeBanDialog() {
+    setBanTarget(null);
+    setBanReason("");
+    setBanDuration("");
+  }
 
   async function handleUnban(userId: string) {
     try {
@@ -133,7 +136,10 @@ export default function AdminUsersPage() {
       toast("User unbanned", "success");
       fetchUsers();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to unban user", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to unban user",
+        "error",
+      );
     }
   }
 
@@ -147,15 +153,15 @@ export default function AdminUsersPage() {
       } = { userId: banTarget.id };
       if (banReason) banParams.banReason = banReason;
       if (banDuration) banParams.banExpiresIn = Number(banDuration);
-      const res = await authClient.admin.banUser(banParams as Parameters<typeof authClient.admin.banUser>[0]);
+      const res = await authClient.admin.banUser(
+        banParams as Parameters<typeof authClient.admin.banUser>[0],
+      );
       if (res.error) {
         toast(res.error.message ?? "Failed to ban user", "error");
         return;
       }
       toast(`${banTarget.name ?? "User"} banned`, "success");
-      setBanTarget(null);
-      setBanReason("");
-      setBanDuration("");
+      closeBanDialog();
       fetchUsers();
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to ban user", "error");
@@ -173,7 +179,7 @@ export default function AdminUsersPage() {
           href={`/admin/users/${user.id}`}
           className="text-accent-purple hover:underline"
         >
-          {user.name}
+          {user.name ?? "Unnamed User"}
         </Link>
       ),
     },
@@ -183,9 +189,13 @@ export default function AdminUsersPage() {
       render: (user: AdminUser) => (
         <span>
           {user.email}
-          {user.emailVerified && (
+          {user.emailVerified ? (
             <span className="ml-2 rounded-full bg-accent-green/10 px-1.5 py-0.5 text-xs text-accent-green">
               verified
+            </span>
+          ) : (
+            <span className="ml-2 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs text-text-muted">
+              unverified
             </span>
           )}
         </span>
@@ -205,7 +215,7 @@ export default function AdminUsersPage() {
       key: "role",
       header: "Role",
       render: (user: AdminUser) => {
-        const role = (user.role as string) ?? "user";
+        const role = user.role ?? "user";
         return <span>{role.charAt(0).toUpperCase() + role.slice(1)}</span>;
       },
     },
@@ -263,10 +273,6 @@ export default function AdminUsersPage() {
     },
   ];
 
-  const offset = page * LIMIT;
-  const showingStart = total === 0 ? 0 : offset + 1;
-  const showingEnd = Math.min(offset + LIMIT, total);
-
   return (
     <div className="space-y-6">
       <div>
@@ -276,7 +282,8 @@ export default function AdminUsersPage() {
         </p>
       </div>
 
-      {/* Top bar controls */}
+      {/* Top bar controls. Every filter resets to the first page: the server
+          combines them, so a page index from another result set is stale. */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Filter users..."
@@ -285,95 +292,95 @@ export default function AdminUsersPage() {
           wrapperClassName="w-64"
         />
         <Select
+          aria-label="Role"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setPage(0);
+          }}
         >
           <option value="all">All Roles</option>
           <option value="admin">Admin</option>
           <option value="user">User</option>
         </Select>
         <Select
+          aria-label="Status"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(0);
+          }}
         >
           <option value="all">All Statuses</option>
           <option value="active">Active</option>
           <option value="banned">Banned</option>
         </Select>
+        <Select
+          aria-label="Email verification"
+          value={verifiedFilter}
+          onChange={(e) => {
+            setVerifiedFilter(e.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="all">All Verification</option>
+          <option value="verified">Verified</option>
+          <option value="unverified">Unverified</option>
+        </Select>
       </div>
 
       {/* Table */}
-      <DataTable columns={columns} data={users} loading={loading} />
+      <DataTable
+        columns={columns}
+        data={users}
+        loading={loading}
+        onRowIntent={handleRowIntent}
+      />
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-text-muted">
-          Showing {showingStart}&ndash;{showingEnd} of {total} users
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page === 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-          >
-            <FontAwesomeIcon icon={faChevronLeft} className="mr-1.5 h-3 w-3" />
-            Previous
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={offset + LIMIT >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-            <FontAwesomeIcon icon={faChevronRight} className="ml-1.5 h-3 w-3" />
-          </Button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        total={total}
+        itemLabel="user"
+        onPageChange={setPage}
+      />
 
       {/* Ban dialog */}
       {banTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6 shadow-2xl">
-            <h2 className="font-display text-lg font-bold text-text">
-              Ban {banTarget.name}
-            </h2>
-            <div className="mt-4 space-y-4">
-              <Input
-                label="Reason (optional)"
-                value={banReason}
-                onChange={(e) => setBanReason(e.target.value)}
-              />
-              <Select
-                label="Duration"
-                value={banDuration}
-                onChange={(e) => setBanDuration(e.target.value)}
-              >
-                <option value="">Permanent</option>
-                <option value="3600">1 hour</option>
-                <option value="86400">24 hours</option>
-                <option value="604800">7 days</option>
-                <option value="2592000">30 days</option>
-              </Select>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setBanTarget(null);
-                  setBanReason("");
-                  setBanDuration("");
-                }}
-              >
+        <Modal
+          onClose={closeBanDialog}
+          title={`Ban ${banTarget.name ?? "user"}`}
+          subtitle="Restrict this user's access."
+          maxWidth="max-w-md"
+          footer={
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={closeBanDialog}>
                 Cancel
               </Button>
               <Button variant="danger" onClick={handleBan}>
                 Ban
               </Button>
             </div>
+          }
+        >
+          <div className="space-y-4">
+            <Input
+              label="Reason (optional)"
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+            />
+            <Select
+              label="Duration"
+              value={banDuration}
+              onChange={(e) => setBanDuration(e.target.value)}
+            >
+              <option value="">Permanent</option>
+              <option value="3600">1 hour</option>
+              <option value="86400">24 hours</option>
+              <option value="604800">7 days</option>
+              <option value="2592000">30 days</option>
+            </Select>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

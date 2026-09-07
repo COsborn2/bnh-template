@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -30,6 +30,8 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const [confirmInput, setConfirmInput] = useState("");
 
+  // The component stays mounted with open=false, so a typed confirmation would
+  // otherwise survive into the next open: reset it when `open` flips.
   const [prevOpen, setPrevOpen] = useState(open);
   if (prevOpen !== open) {
     setPrevOpen(open);
@@ -38,48 +40,22 @@ export function ConfirmDialog({
     }
   }
 
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onCancel();
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onCancel]);
-
   if (!open) return null;
 
   const confirmDisabled =
     loading || (typeToConfirm !== undefined && confirmInput !== typeToConfirm);
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onCancel}
-    >
-      <div
-        className="w-full max-w-md rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-2 text-sm text-text-muted">{message}</p>
-
-        {typeToConfirm !== undefined && (
-          <div className="mt-4">
-            <Input
-              label={`Type ${typeToConfirm} to confirm`}
-              value={confirmInput}
-              onChange={(e) => setConfirmInput(e.target.value)}
-              autoFocus
-            />
-          </div>
-        )}
-
-        <div className="mt-6 flex justify-end gap-3">
+  return (
+    <Modal
+      onClose={onCancel}
+      title={title}
+      maxWidth="max-w-md"
+      // Confirmations can be triggered from inside another modal (100, or 200
+      // for nested hosts), so always stack above — see the z-index contract in
+      // globals.css.
+      zIndex={300}
+      footer={
+        <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onCancel} disabled={loading}>
             Cancel
           </Button>
@@ -88,11 +64,22 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={confirmDisabled}
           >
-            {loading ? "Loading\u2026" : confirmLabel}
+            {loading ? "Loading…" : confirmLabel}
           </Button>
         </div>
-      </div>
-    </div>,
-    document.body
+      }
+    >
+      <p className="text-sm text-text-muted">{message}</p>
+      {typeToConfirm !== undefined && (
+        <div className="mt-4">
+          <Input
+            label={`Type ${typeToConfirm} to confirm`}
+            value={confirmInput}
+            onChange={(e) => setConfirmInput(e.target.value)}
+            autoFocus
+          />
+        </div>
+      )}
+    </Modal>
   );
 }

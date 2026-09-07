@@ -219,8 +219,13 @@ export default function UserDetailPage() {
         return;
       }
       setImpersonateOpen(false);
-      // Hard reload to pick up the new impersonation session cookie
-      window.location.href = "/dashboard";
+      // Soft navigation: the admin client plugin flips the session signal
+      // after /admin/impersonate-user, so useSession() refetches on its own
+      // (the impersonation banner keys its probe off the new user id), and
+      // router.refresh() re-renders /dashboard on the server under the
+      // impersonated session instead of serving the admin's cached payload.
+      router.push("/dashboard");
+      router.refresh();
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to impersonate user", "error");
     } finally {
@@ -395,9 +400,13 @@ export default function UserDetailPage() {
             <span className="font-medium text-text-muted w-28">Email</span>
             <span className="text-text">
               {user.email}
-              {user.emailVerified && (
+              {user.emailVerified ? (
                 <span className="ml-2 rounded-full bg-accent-green/10 px-1.5 py-0.5 text-xs text-accent-green">
                   verified
+                </span>
+              ) : (
+                <span className="ml-2 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs text-text-muted">
+                  unverified
                 </span>
               )}
             </span>
