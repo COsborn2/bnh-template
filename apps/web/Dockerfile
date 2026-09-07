@@ -3,7 +3,7 @@
 # CommonJS-wrapper error on Bun <= 1.3.13, a musl segfault on 1.3.14 —
 # oven-sh/bun#36866), and sharp's native binary in the standalone output only
 # loads on the libc it was installed for, so build and runtime share node:22-slim.
-FROM oven/bun:1.4.1-slim@sha256:887d0f37f674c69984be4e397fef29ca0d74df1e75155431abbe857258bffde5 AS pruner
+FROM oven/bun:1.4.2-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61 AS pruner
 WORKDIR /app
 COPY . .
 RUN bunx turbo prune @app/web --docker
