@@ -270,7 +270,33 @@ export const auth = betterAuth({
       // section of DEPLOYMENT.md) overwrites X-Real-IP and X-Forwarded-For
       // with the resolved client IP, so these are trustworthy.
       ipAddressHeaders: ["x-real-ip", "x-forwarded-for"],
+      // Without this list better-auth only accepts a SINGLE-value forwarded
+      // header, so any multi-hop x-forwarded-for chain (a client that sends
+      // its own spoofed value, traffic that reaches a service's own Railway
+      // domain instead of the proxy, an extra appending hop) resolved to no
+      // IP at all and every such request shared one rate-limit bucket.
+      // Mirrors infra/proxy/Caddyfile's `trusted_proxies static
+      // private_ranges 100.64.0.0/10`: chains are stripped right-to-left
+      // through these ranges and the first untrusted hop is the client.
+      trustedProxies: [
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "100.64.0.0/10",
+        "fd00::/8",
+        "::1/128",
+      ],
     },
+  },
+
+  // Where OAuth callback failures land the user (with ?error=<code>). The
+  // common one is state_mismatch: a Google callback finished more than 10
+  // minutes after it started, or was replayed/bookmarked. Without this,
+  // better-auth dead-ends the user on its bare /api/auth/error page; the
+  // login page renders a friendly notice for the code instead.
+  onAPIError: {
+    errorURL: `${betterAuthBaseUrl}/auth/login`,
   },
 
   rateLimit: {
@@ -328,12 +354,14 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/sign-up/email") {
-        const body = ctx.body as Record<string, unknown>;
+        const body = ctx.body as Record<string, unknown> | undefined;
 
-        // Validate email domain (disposable email blocking + MX check)
+        // Validate email domain (disposable email blocking + MX check). This
+        // hook runs before the endpoint's own body validation, so anything
+        // that isn't a string is left for better-auth to reject with a 400.
         const email = body?.email;
-        if (email) {
-          const result = await validateEmailDomain(email as string);
+        if (typeof email === "string") {
+          const result = await validateEmailDomain(email);
           if (!result.valid) {
             throw new APIError("BAD_REQUEST", {
               message: result.reason || "Invalid email address",

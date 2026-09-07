@@ -126,6 +126,7 @@ const REPLACEMENT_FILES = [
   "apps/api/src/instrumentation.ts",
   "apps/api/src/test-preload.ts",
   "apps/api/src/db/seed.ts",
+  "apps/api/src/routes/admin.ts",
   "apps/cron/src/cleanup-predicates.ts",
   "apps/cron/src/cleanup-predicates.test.ts",
   "apps/cron/src/retention.ts",

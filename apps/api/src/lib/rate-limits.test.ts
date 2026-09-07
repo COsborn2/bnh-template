@@ -9,15 +9,16 @@ import {
 } from "bun:test";
 import { betterAuth } from "better-auth";
 import Redis from "ioredis";
+import { redisStub } from "../test-support/mocks.js";
 
 // Switchable Redis mock: null (the default) exercises the in-memory fallback
 // paths; the redis-specific tests below temporarily point it at a real client
 // when REDIS_URL is available.
 let mockRedisClient: Redis | null = null;
 
-mock.module("./redis.js", () => ({
-  getRedisClient: () => mockRedisClient,
-}));
+mock.module("./redis.js", () =>
+  redisStub({ getRedisClient: () => mockRedisClient }),
+);
 
 import {
   RATE_LIMIT_POLICIES,

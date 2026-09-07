@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import { injectTraceContext, SpanKind, withSpan } from "@app/otel";
 import type { RealtimeMessage } from "@app/shared";
+import { errorLogValue, logger } from "./logger.js";
 
 const redisUrl = process.env.REDIS_URL;
 
@@ -13,7 +14,9 @@ function getPublisher(): Redis {
     }
     publisher = new Redis(redisUrl);
     publisher.on("error", (err: Error) =>
-      console.error("[redis:api]", err.message)
+      logger.error("redis.publisher_connection_error", {
+        error: errorLogValue(err),
+      }),
     );
   }
   return publisher;
@@ -48,9 +51,26 @@ function publishRealtime(topic: string, message: RealtimeMessage): void {
         "ws.message.kind": message.kind,
       },
     },
-  ).catch((err: Error) =>
-    console.error("[redis:api] publish failed:", err.message)
-  );
+  ).catch((err: Error) => {
+    // Deliberately fire-and-forget — a mutation must not fail because its
+    // broadcast did. But a dropped publish means every connected client is
+    // now stale until their next reconnect/refetch, so make the failure
+    // findable: structured log with the topic, envelope kind and event type
+    // (the span above already carries the error for tracing).
+    const eventType =
+      message.kind === "event" &&
+      message.data &&
+      typeof message.data === "object" &&
+      "type" in message.data
+        ? String((message.data as { type: unknown }).type)
+        : undefined;
+    logger.error("redis.publish_failed", {
+      topic,
+      kind: message.kind,
+      eventType,
+      error: errorLogValue(err),
+    });
+  });
 }
 
 /** Fan `data` out to every client subscribed to `topic`, on all WS instances. */

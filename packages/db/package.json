@@ -10,7 +10,8 @@
     "./schema": "./src/schema.ts"
   },
   "scripts": {
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@app/otel": "workspace:*",

@@ -7,6 +7,7 @@ import {
   type RateLimiterAbstract,
   type RateLimiterRes,
 } from "rate-limiter-flexible";
+import { tooManyRequests } from "./errors.js";
 import { getRedisClient } from "./redis.js";
 
 /**
@@ -365,6 +366,36 @@ async function refundRateLimit(policyId: string, key: string): Promise<void> {
 }
 
 /**
+ * A paired daily + hourly quota: both are probed first so an exhausted hour
+ * never burns a day point, then the day is consumed and the hour consumed
+ * or, if it fails, the day point refunded (best-effort, logged).
+ */
+async function consumeDayHourQuota(
+  dayPolicyId: string,
+  hourPolicyId: string,
+  key: string,
+  label: string,
+): Promise<void> {
+  await checkRateLimit(dayPolicyId, key);
+  await checkRateLimit(hourPolicyId, key);
+
+  await consumeRateLimit(dayPolicyId, key);
+  try {
+    await consumeRateLimit(hourPolicyId, key);
+  } catch (err) {
+    try {
+      await refundRateLimit(dayPolicyId, key);
+    } catch (refundErr) {
+      console.error(
+        `[rate-limit] Failed to refund daily ${label} quota:`,
+        refundErr,
+      );
+    }
+    throw err;
+  }
+}
+
+/**
  * Per-recipient cap on outbound auth emails (verification, password reset,
  * change-email, delete-account). Dual-window: consume the day bucket first,
  * then the hour bucket, refunding the day bucket if the hour bucket rejects
@@ -372,23 +403,12 @@ async function refundRateLimit(policyId: string, key: string): Promise<void> {
  */
 export async function consumeEmailSendLimit(to: string): Promise<void> {
   const key = makeRateLimitKey("email", to);
-  await checkRateLimit("email-send-target-day", key);
-  await checkRateLimit("email-send-target-hour", key);
-
-  await consumeRateLimit("email-send-target-day", key);
-  try {
-    await consumeRateLimit("email-send-target-hour", key);
-  } catch (err) {
-    try {
-      await refundRateLimit("email-send-target-day", key);
-    } catch (refundErr) {
-      console.error(
-        "[rate-limit] Failed to refund daily email quota:",
-        refundErr,
-      );
-    }
-    throw err;
-  }
+  await consumeDayHourQuota(
+    "email-send-target-day",
+    "email-send-target-hour",
+    key,
+    "email",
+  );
 }
 
 /**
@@ -398,6 +418,23 @@ export async function consumeEmailSendLimit(to: string): Promise<void> {
 export async function consumePublicEndpointLimit(ip: string): Promise<void> {
   const key = makeRateLimitKey("ip", ip);
   await consumeRateLimit("public-endpoint-ip-hour", key);
+}
+
+/**
+ * The route envelope for quota consumption: runs `consume` and turns a
+ * RateLimitError into the 429 with the human-readable reason; anything else
+ * propagates. Takes a callback (rather than a policy) so route tests can keep
+ * stubbing the individual consume functions.
+ */
+export async function rateLimitedOr429(
+  consume: () => Promise<void>,
+): Promise<void> {
+  try {
+    await consume();
+  } catch (err) {
+    if (isRateLimitError(err)) throw tooManyRequests(formatRateLimitReason(err));
+    throw err;
+  }
 }
 
 export function formatRateLimitReason(error: RateLimitError): string {

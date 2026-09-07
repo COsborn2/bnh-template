@@ -31,3 +31,17 @@ export function payloadTooLarge(message = "Payload too large") {
 export function tooManyRequests(message = "Too many requests") {
   return new HTTPException(429, { message });
 }
+
+/** True when `err` is a Postgres unique-constraint violation (SQLSTATE
+ *  23505), directly or wrapped by drizzle in a `cause` chain. Lets routes
+ *  lean on a UNIQUE index as the race arbiter and map the loser to a 409. */
+export function isUniqueViolation(err: unknown): boolean {
+  for (
+    let e = err;
+    e && typeof e === "object";
+    e = (e as { cause?: unknown }).cause
+  ) {
+    if ((e as { code?: unknown }).code === "23505") return true;
+  }
+  return false;
+}
