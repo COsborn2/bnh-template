@@ -133,6 +133,7 @@ const REPLACEMENT_FILES = [
   "apps/web/src/app/layout.tsx",
   "apps/web/src/app/auth/layout.tsx",
   "apps/web/src/app/page.tsx",
+  "apps/web/src/app/settings/_components/errors.ts",
   "apps/web/src/app/manifest.json",
   "apps/web/src/components/chat/chat-page.tsx",
   "apps/web/src/hooks/use-websocket.ts",

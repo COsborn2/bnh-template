@@ -252,3 +252,41 @@ html {
     opacity: 1;
   }
 }
+
+/* ============================================================
+   Page loading (PageLoading in components/ui/page-loading.tsx)
+   Invisible for the first 250ms, then fades in — the CSS
+   equivalent of a deferred-loading hook. Fast loads never see
+   it; slow ones get a calm breathing dot, not a skeleton.
+   ============================================================ */
+.page-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.page-loading-pulse {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-accent-purple);
+  box-shadow: 0 0 28px var(--color-accent-purple);
+  opacity: 0;
+  animation:
+    loading-appear 0.3s ease-out 0.25s forwards,
+    loading-breathe 1.6s ease-in-out 0.55s infinite;
+}
+@keyframes loading-appear {
+  to { opacity: 0.45; }
+}
+@keyframes loading-breathe {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.2; transform: scale(0.82); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-pulse {
+    animation: loading-appear 0.3s ease-out 0.25s forwards;
+  }
+}

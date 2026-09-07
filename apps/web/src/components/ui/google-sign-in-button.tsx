@@ -10,7 +10,7 @@
  *   Standard multicolor "G" on white background container
  */
 
-function GoogleLogo({ className }: { className?: string }) {
+export function GoogleLogo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
       <path
