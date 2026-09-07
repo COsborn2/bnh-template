@@ -40,6 +40,9 @@ function fetchSession(request: NextRequest): Promise<Response> {
   return fetch(`${API_INTERNAL_URL}/api/auth/get-session`, {
     headers: forwardedHeaders(request),
     cache: "no-store",
+    // A hung API must not stall every page for visitors with an expired
+    // cache cookie: bound the refresh and fall through to serving the page.
+    signal: AbortSignal.timeout(2000),
   });
 }
 

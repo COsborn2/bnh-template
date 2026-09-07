@@ -86,6 +86,22 @@ describe("POST /api/account/set-password", () => {
     expect((await again.json()).code).toBe("PASSWORD_ALREADY_SET");
   });
 
+  test("a breached password is refused before better-auth is reached", async () => {
+    const user = await createAndLoginUser({ email: uniqueEmail("setpw-hibp") });
+
+    // "password123" is one of the most common breached passwords; the same
+    // check rejects it on sign-up, change-password and reset-password.
+    const res = await setPassword(
+      { newPassword: "password123" },
+      user.cookieHeader,
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("PASSWORD_COMPROMISED");
+    expect(body.error.toLowerCase()).toContain("compromised");
+  });
+
   test("a credential user gets better-auth's PASSWORD_ALREADY_SET (400)", async () => {
     const reg = await registerUser();
     expect(reg.sessionToken).toBeTruthy();
@@ -96,7 +112,10 @@ describe("POST /api/account/set-password", () => {
     );
 
     expect(res.status).toBe(400);
-    expect((await res.json()).code).toBe("PASSWORD_ALREADY_SET");
+    const body = await res.json();
+    expect(body.code).toBe("PASSWORD_ALREADY_SET");
+    // better-auth's message travels under the app's `error` key.
+    expect(typeof body.error).toBe("string");
   });
 
   test("an admin impersonation session is refused with 403", async () => {

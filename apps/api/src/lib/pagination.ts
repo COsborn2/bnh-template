@@ -16,8 +16,11 @@ export function parseNonNegativeInt(
   // would otherwise silently return an empty page.
   if (value === undefined || value === "") return fallback;
 
+  // Safe integers only: `Number.isInteger(1e21)` is true, and a huge offset
+  // would reach Postgres as "1e+21" for a bigint parameter — a 500 instead
+  // of the 400 every other bad param gets.
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
     throw badRequest("Invalid pagination parameter");
   }
 

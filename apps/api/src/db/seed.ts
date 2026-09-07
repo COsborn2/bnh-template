@@ -9,6 +9,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@app/db";
 import { auth } from "../lib/auth.js";
+import { deleteAccountData } from "../services/account.js";
 
 // Users are created through better-auth's own sign-up (auth.api.signUpEmail)
 // rather than raw inserts, so the account row is exactly what the adapter
@@ -55,6 +56,10 @@ async function deleteExistingUser(email: string): Promise<void> {
   if (!existing) return;
 
   console.log(`Removing existing user: ${email}`);
+  // A raw delete bypasses better-auth's user.delete.before hook, so the app
+  // cleanup it would have run is invoked explicitly (the FK cascade covers
+  // sessions and accounts).
+  await deleteAccountData(existing.id);
   await db.delete(schema.user).where(eq(schema.user.id, existing.id));
 }
 

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { describeDeleteError, describeLinkError } from "./errors";
+import {
+  describeDeleteError,
+  describeLinkError,
+  describeUnlinkError,
+} from "./errors";
 
 describe("describeDeleteError", () => {
   test("rate limit wins over any code", () => {
@@ -24,6 +28,22 @@ describe("describeDeleteError", () => {
     expect(describeDeleteError({})).toBe(
       "Couldn't start account deletion. Please try again.",
     );
+  });
+});
+
+describe("describeUnlinkError", () => {
+  test("turns the freshness gate into an instruction", () => {
+    expect(describeUnlinkError({ code: "SESSION_NOT_FRESH" })).toMatch(
+      /sign out and back in/,
+    );
+    expect(
+      describeUnlinkError({ code: "FAILED_TO_UNLINK_LAST_ACCOUNT" }),
+    ).toMatch(/Set a password/);
+  });
+
+  test("falls back to the server message, then generic copy", () => {
+    expect(describeUnlinkError({ message: "Nope" })).toBe("Nope");
+    expect(describeUnlinkError({})).toBe("Failed to disconnect account");
   });
 });
 

@@ -6,6 +6,7 @@ import {
   useRef,
   type CSSProperties,
   type ReactNode,
+  useState,
 } from "react";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -83,13 +84,21 @@ export function ModalCard({
   // already claimed it via autoFocus. On close, hand focus back to whatever
   // opened the dialog so the user isn't dropped at <body>, but never steal it
   // from something they have since clicked into.
+  // Captured during the first render: a child's `autoFocus` (ConfirmDialog's
+  // type-to-confirm input) commits before passive effects run, so reading
+  // document.activeElement inside the effect would capture that input instead
+  // of the button that opened the dialog. The typeof guard keeps
+  // renderToString happy.
+  const [opener] = useState<HTMLElement | null>(() =>
+    typeof document !== "undefined" &&
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null,
+  );
+
   useEffect(() => {
     const card = cardRef.current;
     if (!card) return;
-    const opener =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
     if (!card.contains(document.activeElement)) {
       card.focus({ preventScroll: true });
     }
@@ -101,7 +110,7 @@ export function ModalCard({
         opener.focus({ preventScroll: true });
       }
     };
-  }, []);
+  }, [opener]);
 
   return (
     <div

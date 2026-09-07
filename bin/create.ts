@@ -162,6 +162,7 @@ const REPLACEMENT_FILES = [
   "DEPLOYMENT.md",
 
   // Other
+  "CLAUDE.md",
   "scripts/check-peer-deps.ts",
   "scripts/integration-test.sh",
   "apps/api/src/__tests__/setup.ts",
@@ -169,6 +170,9 @@ const REPLACEMENT_FILES = [
   "packages/shared/src/index.ts",
   "README.md",
 ];
+
+const TEMPLATE_ONLY_BLOCK =
+  /[ \t]*<!-- template-only -->[\s\S]*?<!-- \/template-only -->\r?\n?/g;
 
 interface Replacements {
   projectName: string;
@@ -186,6 +190,12 @@ async function replaceInFiles(dest: string, r: Replacements) {
     }
 
     let content = await readFile(filePath, "utf-8");
+
+    // Drop template-maintainer notes (CLAUDE.md wraps them in
+    // `<!-- template-only -->` … `<!-- /template-only -->`) before the
+    // placeholder rewrite, so the sentence naming the placeholders never
+    // reaches a scaffold half-substituted.
+    content = content.replace(TEMPLATE_ONLY_BLOCK, "");
 
     // Replace @app/ scope (before other replacements to avoid partial matches)
     content = content.replaceAll("@app/", `@${r.scope}/`);

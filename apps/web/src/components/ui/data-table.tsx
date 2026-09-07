@@ -18,7 +18,8 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   onRowClick?: (row: T) => void;
   /** Fired on pointer-enter / focus of a row — hook for prefetching the
-   *  route a row navigates to before the click (see hooks/use-prefetch.ts). */
+   *  route a row navigates to before the click (see handleRowIntent in
+   *  app/admin/users/page.tsx). */
   onRowIntent?: (row: T) => void;
 }
 

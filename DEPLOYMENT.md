@@ -437,10 +437,10 @@ https://myapp-production.up.railway.app
 
 On pushes to `main`, `.github/workflows/ci.yml`:
 
-1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI
+1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI; in the template repo a `scaffold` job also runs `bin/create.ts` and fails on any leftover placeholder or lint error in the generated app
 2. detects affected services with `turbo query affected` and builds a dynamic Docker job matrix — unchanged services spawn no jobs at all (the `proxy` never appears in your app's matrix; its source lives only in the template repo, whose own CI publishes the proxy image)
 3. waits for the `production` GitHub environment before the Docker jobs run, so environment protection rules can gate publishing
-4. builds and pushes each affected image to GHCR under `sha-<commit>` and `latest` tags, then runs the built `web` image and requires `/health` to answer within 60 seconds — a green `docker build` says nothing about whether the image boots (next 16.3.1's standalone output built fine and crash-looped at startup). On push this runs the exact GHCR `sha-<commit>` tag that gets deployed; a failed smoke test fails the Docker job and therefore blocks `railway-deploy`
+4. builds and pushes each affected image to GHCR under its immutable `sha-<commit>` tag, runs the built `web` image and requires `/health` to answer within 60 seconds — a green `docker build` says nothing about whether the image boots (next 16.3.1's standalone output built fine and crash-looped at startup) — and only then promotes the pushed image to `latest`. A failed smoke test fails the Docker job, blocks `railway-deploy`, and leaves `latest` on the previous image
 5. after all affected images are pushed, runs a single `railway-deploy` job (also gated on the `production` environment) that resolves every changed Railway service
 6. uses `scripts/railway-deploy-image.sh` to commit **one** environment patch (one `environmentPatchCommit` call) that updates the source image of every changed service at once, so back-to-back per-service patches can never race or get lost
 7. carries forward each service's current `deploy` block in that patch, preserving dashboard-managed replicas, regions, and restart policies

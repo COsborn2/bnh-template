@@ -18,8 +18,15 @@ describe("parseNonNegativeInt", () => {
     expect(parseNonNegativeInt("40", 20)).toBe(40);
   });
 
-  test("rejects negatives, fractions, and junk", () => {
-    for (const value of ["-1", "1.5", "abc"]) {
+  test("rejects negatives, fractions, junk, and unsafe magnitudes", () => {
+    for (const value of [
+      "-1",
+      "1.5",
+      "abc",
+      "1e21",
+      "99999999999999999999",
+      "Infinity",
+    ]) {
       expect(() => parseNonNegativeInt(value, 20)).toThrow();
     }
   });

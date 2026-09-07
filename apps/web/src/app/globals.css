@@ -68,22 +68,26 @@ body {
    :user-invalid — Firefox draws a red glow, and it lands on fields nobody has
    finished typing in yet (every auth form). We report problems in copy and in
    each field's own error prop, so the UA layer is noise that reads as "you
-   broke something". Drop it and let our focus styles stand; `outline: none`
-   here is safe because the focus ring is drawn by the author-level rules,
-   which win on specificity. */
-input:user-invalid,
-textarea:user-invalid,
-select:user-invalid {
-  box-shadow: none;
-  outline: none;
-}
-/* Firefox < 88 spells it :-moz-ui-invalid; kept in its own rule so an engine
-   that doesn't parse it discards only this block, not the one above. */
-input:-moz-ui-invalid,
-textarea:-moz-ui-invalid,
-select:-moz-ui-invalid {
-  box-shadow: none;
-  outline: none;
+   broke something". Drop it and let our focus styles stand. The rules sit in
+   `@layer base` on purpose: author styles beat the UA sheet whatever their
+   layer, while Tailwind's utilities layer comes later in the cascade, so the
+   `focus:ring-*` box-shadow still wins the moment the field is focused (an
+   unlayered rule would override it). */
+@layer base {
+  input:user-invalid,
+  textarea:user-invalid,
+  select:user-invalid {
+    box-shadow: none;
+    outline: none;
+  }
+  /* Firefox < 88 spells it :-moz-ui-invalid; kept in its own rule so an engine
+     that doesn't parse it discards only this block, not the one above. */
+  input:-moz-ui-invalid,
+  textarea:-moz-ui-invalid,
+  select:-moz-ui-invalid {
+    box-shadow: none;
+    outline: none;
+  }
 }
 
 /* Modal overlay (components/ui/modal-overlay.tsx). Stacking contract for

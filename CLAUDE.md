@@ -5,14 +5,21 @@ Bun + Turborepo monorepo. `apps/web` = Next.js 16 App Router (port 3000, rewrite
 WebSocket service (port 3002), `apps/migrate` = drizzle migration runner, `apps/cron` =
 scheduled cleanup, `packages/shared` = shared types, `packages/db` = drizzle schema +
 client, `packages/email` = React Email templates + sender, `packages/otel` = tracing,
-`packages/theme` = design tokens. `infra/proxy` (Caddy) lives only in this template repo;
-scaffolded apps run its published image.
+`packages/theme` = design tokens. The Caddy edge proxy is a published image
+(`ghcr.io/cosborn2/bnh-template/proxy`) configured by environment variables.
 
+<!-- template-only -->
 - This repo is a template: `bin/create.ts` scaffolds new apps from it, replacing the
   placeholders `MyApp` (display name), `myapp` (db name), `@app/` (workspace scope) and
   `bun-template` (repo name). Every file that contains one of those must be listed in
-  `REPLACEMENT_FILES` in `bin/create.ts`. Never hardcode a product name in user-facing
-  copy — read `NEXT_PUBLIC_APP_NAME` / `APP_NAME` (fallback `MyApp`).
+  `REPLACEMENT_FILES` in `bin/create.ts`; the block between the `template-only` markers
+  in this file is stripped from scaffolds. `infra/proxy` (the Caddy source) lives only
+  here. README.md and DEPLOYMENT.md are copied into scaffolded apps: keep them generic
+  and keep the placeholders. CI's `scaffold` job creates an app and fails on any
+  leftover placeholder.
+<!-- /template-only -->
+- Never hardcode a product name in user-facing copy — read `NEXT_PUBLIC_APP_NAME` /
+  `APP_NAME` (fallback `MyApp`).
 - Typecheck: `bun run lint` inside a workspace = `tsc --noEmit` (in `apps/web` too);
   root `bun run lint` = ESLint over the whole repo + `turbo lint` (typecheck of every
   workspace). CI runs the root command, so all workspaces must typecheck.
@@ -30,5 +37,3 @@ scaffolded apps run its published image.
   enforces this).
 - `next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` and rewrites
   `apps/web/next-env.d.ts`; all three are committed on purpose.
-- README.md and DEPLOYMENT.md are copied into scaffolded apps: keep them generic and
-  keep the placeholders.

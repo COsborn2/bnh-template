@@ -22,6 +22,26 @@ export function describeDeleteError(error: {
 }
 
 /**
+ * Copy for better-auth's /unlink-account errors. The route runs under its
+ * freshSessionMiddleware (default freshAge 24h, which this template keeps), so
+ * a session older than a day gets SESSION_NOT_FRESH; the last sign-in method
+ * is refused server-side with FAILED_TO_UNLINK_LAST_ACCOUNT.
+ */
+export function describeUnlinkError(error: {
+  code?: string;
+  message?: string;
+}): string {
+  switch (error.code) {
+    case "SESSION_NOT_FRESH":
+      return "For security, please sign out and back in, then disconnect again.";
+    case "FAILED_TO_UNLINK_LAST_ACCOUNT":
+      return "Set a password before disconnecting your only sign-in method.";
+    default:
+      return error.message || "Failed to disconnect account";
+  }
+}
+
+/**
  * Copy for the `?error=<code>` better-auth appends when a link-social
  * callback fails and redirects back here (handleConnect passes
  * errorCallbackURL "/settings"). Codes come from better-auth's OAuth

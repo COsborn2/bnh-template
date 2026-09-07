@@ -22,8 +22,9 @@ export function LoginForm() {
   );
 
   // The API's onAPIError.errorURL lands OAuth callback failures here with
-  // ?error=<code>. (A future authClient.linkSocial call must pass its own
-  // errorCallbackURL, otherwise its failures land here too.)
+  // ?error=<code>. (Any authClient.linkSocial call must pass its own
+  // errorCallbackURL — connected-accounts-section.tsx does — otherwise its
+  // failures land here too.)
   const callbackError = useConsumedErrorParam(describeAuthCallbackError);
 
   async function handleSubmit(e: FormEvent) {

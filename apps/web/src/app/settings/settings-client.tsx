@@ -67,7 +67,10 @@ export function SettingsClient({ initialUser }: SettingsClientProps) {
           loadError={accounts.error || undefined}
           onAccountsChange={accounts.refetch}
         />
-        <DeleteAccountSection email={user.email} />
+        <DeleteAccountSection
+          email={user.email}
+          hasPassword={accounts.hasPassword}
+        />
       </div>
     </div>
   );

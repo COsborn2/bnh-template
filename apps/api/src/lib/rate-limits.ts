@@ -227,10 +227,36 @@ interface ConsumeResult {
  * when Redis is unset or a command fails/times out. Synchronous, so it is
  * strict even under concurrent requests within this instance.
  */
-function consumeBetterAuthMemory(key: string, rule: ConsumeRule): ConsumeResult {
+// The fallback map otherwise grows by one entry per distinct ip|path for the
+// life of the process (no Redis in dev, or a long Redis outage in
+// production). Sweep expired windows once it gets big; better-auth's own
+// memory storage prunes on every consume for the same reason.
+const BETTER_AUTH_MEMORY_PRUNE_THRESHOLD = 10_000;
+
+function pruneBetterAuthMemory(now: number): void {
+  for (const [key, entry] of betterAuthConsumeMemory) {
+    if (now >= entry.resetAt) betterAuthConsumeMemory.delete(key);
+  }
+}
+
+/** Test-only visibility into the fallback map's size. */
+export function betterAuthMemorySizeForTests(): number {
+  return betterAuthConsumeMemory.size;
+}
+
+function consumeBetterAuthMemory(
+  key: string,
+  rule: ConsumeRule,
+): ConsumeResult {
   const now = Date.now();
   const entry = betterAuthConsumeMemory.get(key);
   if (!entry || now >= entry.resetAt) {
+    if (
+      !entry &&
+      betterAuthConsumeMemory.size >= BETTER_AUTH_MEMORY_PRUNE_THRESHOLD
+    ) {
+      pruneBetterAuthMemory(now);
+    }
     betterAuthConsumeMemory.set(key, {
       count: 1,
       resetAt: now + rule.window * 1000,
@@ -432,7 +458,8 @@ export async function rateLimitedOr429(
   try {
     await consume();
   } catch (err) {
-    if (isRateLimitError(err)) throw tooManyRequests(formatRateLimitReason(err));
+    if (isRateLimitError(err))
+      throw tooManyRequests(formatRateLimitReason(err));
     throw err;
   }
 }

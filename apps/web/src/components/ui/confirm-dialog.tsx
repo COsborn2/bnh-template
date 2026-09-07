@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -15,6 +15,10 @@ interface ConfirmDialogProps {
   onCancel: () => void;
   loading?: boolean;
   typeToConfirm?: string;
+  /** Extra content between the message and the actions (e.g. a password
+   *  field); pair with `confirmDisabled` when it gates confirmation. */
+  children?: ReactNode;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -27,6 +31,8 @@ export function ConfirmDialog({
   onCancel,
   loading = false,
   typeToConfirm,
+  children,
+  confirmDisabled: confirmDisabledProp = false,
 }: ConfirmDialogProps) {
   const [confirmInput, setConfirmInput] = useState("");
 
@@ -43,7 +49,9 @@ export function ConfirmDialog({
   if (!open) return null;
 
   const confirmDisabled =
-    loading || (typeToConfirm !== undefined && confirmInput !== typeToConfirm);
+    loading ||
+    confirmDisabledProp ||
+    (typeToConfirm !== undefined && confirmInput !== typeToConfirm);
 
   return (
     <Modal
@@ -70,6 +78,7 @@ export function ConfirmDialog({
       }
     >
       <p className="text-sm text-text-muted">{message}</p>
+      {children}
       {typeToConfirm !== undefined && (
         <div className="mt-4">
           <Input

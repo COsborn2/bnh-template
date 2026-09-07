@@ -308,6 +308,7 @@ export const auth = betterAuth({
     // allowed within that window for the matched auth route.
     customRules: {
       "/sign-in/email": { window: 10, max: 3 },
+      "/sign-in/username": { window: 10, max: 3 },
       "/sign-up/email": { window: 60 * 60, max: 10 },
       "/request-password-reset": { window: 10 * 60, max: 3 },
       "/send-verification-email": { window: 10 * 60, max: 3 },
@@ -321,7 +322,9 @@ export const auth = betterAuth({
         // Runs immediately before any user row deleted through Better Auth —
         // covers BOTH the self-service /delete-user (callback) flow and admin
         // removal. The cron unverified-account sweep (apps/cron/src/cleanup.ts
-        // Step 3) deletes user rows directly and BYPASSES this hook. Throwing
+        // Step 3) and the seed's reset (apps/api/src/db/seed.ts) delete user
+        // rows directly and BYPASS this hook (the seed calls the cleanup
+        // itself). Throwing
         // aborts the deletion. Handles the cleanup the FK cascade can't (see
         // the service).
         async before(user) {
@@ -335,11 +338,15 @@ export const auth = betterAuth({
     captcha({
       provider: "cloudflare-turnstile",
       secretKey: process.env.TURNSTILE_SECRET_KEY!,
-      // Setting `endpoints` replaces Better Auth's defaults, so keep the
-      // default protected auth routes and add direct verification resends.
+      // Setting `endpoints` replaces Better Auth's defaults, so list every
+      // credential endpoint explicitly: the plugin matches paths exactly, and
+      // the username plugin's /sign-in/username is a separate route that the
+      // login form also submits (with the Turnstile header) for identifiers
+      // without an "@". Verification resends are direct calls from the app.
       endpoints: [
         "/sign-up/email",
         "/sign-in/email",
+        "/sign-in/username",
         "/request-password-reset",
         "/send-verification-email",
       ],

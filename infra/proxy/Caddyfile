@@ -46,7 +46,7 @@
 		header Content-Type text/plain
 		respond "User-agent: *
 Disallow: /api/
-Disallow: /admin/
+Disallow: /admin
 Disallow: /dashboard
 Disallow: /settings
 Disallow: /auth/reset-password

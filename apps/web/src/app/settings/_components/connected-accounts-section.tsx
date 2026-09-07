@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GoogleLogo } from "@/components/ui/google-sign-in-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConsumedErrorParam } from "@/hooks/use-consumed-error-param";
-import { describeLinkError } from "./errors";
+import { describeLinkError, describeUnlinkError } from "./errors";
 import { StatusPill } from "./status-pill";
 import type { LinkedAccount } from "./use-accounts";
 
@@ -99,7 +99,7 @@ export function ConnectedAccountsSection({
         accountId: account.id,
       });
       if (unlinkError) {
-        setError(unlinkError.message || "Failed to disconnect account");
+        setError(describeUnlinkError(unlinkError));
         return;
       }
       await onAccountsChange();

@@ -216,6 +216,8 @@ describe("GET /api/admin/users", () => {
       "?limit=abc",
       "?limit=1.5",
       "?offset=-1",
+      "?offset=1e21",
+      "?offset=99999999999999999999",
     ]) {
       const res = await listUsers(query, adminCookie);
       expect(res.status).toBe(400);

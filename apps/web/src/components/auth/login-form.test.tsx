@@ -1,16 +1,27 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { renderWithRouter } from "@/test/router-stub";
 import { LoginForm } from "./login-form";
 
 // Rendered once — every assertion reads the same server-side HTML, which is
 // what the statically prerendered /auth/login page ships.
 let html = "";
+const originalSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 beforeAll(() => {
   // Without a site key the Turnstile widget is not rendered, so the form
   // server-renders without touching the Cloudflare script.
   delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   html = renderWithRouter(<LoginForm />).replaceAll("<!-- -->", "");
+});
+
+// bun runs every test file in one process: put the key back so later files
+// that render the widget are not affected by file ordering.
+afterAll(() => {
+  if (originalSiteKey === undefined) {
+    delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  } else {
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = originalSiteKey;
+  }
 });
 
 describe("LoginForm server rendering", () => {

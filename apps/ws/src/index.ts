@@ -482,7 +482,7 @@ const server = Bun.serve<WsData>({
         let auth: AuthResult | null = null;
         if (cookieHeader) {
           try {
-            auth = await validateSession(cookieHeader);
+            auth = await validateSession(cookieHeader, request.headers);
           } catch (error) {
             // Don't collapse infrastructure failures into 401 — clients (and
             // the reconnect loop) must be able to tell "my session is

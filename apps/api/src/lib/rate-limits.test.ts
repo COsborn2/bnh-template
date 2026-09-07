@@ -24,6 +24,7 @@ import {
   RATE_LIMIT_POLICIES,
   RateLimitError,
   areRateLimitsBypassed,
+  betterAuthMemorySizeForTests,
   betterAuthRateLimitStorage,
   consumeEmailSendLimit,
   consumePublicEndpointLimit,
@@ -212,6 +213,24 @@ describe("rate limit consumption", () => {
 describe("Better Auth rate limit consume (memory fallback)", () => {
   const consume = (key: string, rule: { window: number; max: number }) =>
     betterAuthRateLimitStorage.consume(key, rule);
+
+  test("evicts expired windows once the map is large", async () => {
+    const rule = { window: 10, max: 3 };
+    try {
+      for (let i = 0; i < 10_000; i += 1) {
+        await consume(`203.0.113.${i}|/sign-in/email`, rule);
+      }
+      expect(betterAuthMemorySizeForTests()).toBe(10_000);
+
+      setSystemTime(new Date(Date.now() + 11_000));
+      await consume("fresh|/sign-in/email", rule);
+
+      // Every earlier window has elapsed; only the new key survives.
+      expect(betterAuthMemorySizeForTests()).toBe(1);
+    } finally {
+      setSystemTime();
+    }
+  });
 
   test("allows up to max requests then blocks with a retryAfter", async () => {
     const rule = { window: 10, max: 3 };

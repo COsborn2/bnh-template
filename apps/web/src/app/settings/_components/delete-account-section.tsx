@@ -4,17 +4,35 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
 import { describeDeleteError } from "./errors";
 
 interface DeleteAccountSectionProps {
   email: string;
+  /** Whether the account has a credential password (from /list-accounts).
+   *  null while unknown, which falls back to the typed-email confirmation. */
+  hasPassword?: boolean | null;
 }
 
-export function DeleteAccountSection({ email }: DeleteAccountSectionProps) {
+export function DeleteAccountSection({
+  email,
+  hasPassword = null,
+}: DeleteAccountSectionProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState("");
+  const [password, setPassword] = useState("");
+
+  // Credential users confirm with their password, which better-auth verifies
+  // before sending the link (INVALID_PASSWORD otherwise); OAuth-only users
+  // have no password, so they type their email address instead.
+  const confirmWithPassword = hasPassword === true;
+
+  function closeConfirm() {
+    setShowConfirm(false);
+    setPassword("");
+  }
 
   async function handleDelete() {
     setIsSending(true);
@@ -23,9 +41,11 @@ export function DeleteAccountSection({ email }: DeleteAccountSectionProps) {
       // Better Auth never deletes inline here — with deletion verification
       // enabled (see the API's auth.ts) it emails a one-time confirmation
       // link and returns success. Deletion only happens once that's opened.
-      const { error: deleteError } = await authClient.deleteUser({
-        callbackURL: "/",
-      });
+      const { error: deleteError } = await authClient.deleteUser(
+        confirmWithPassword
+          ? { password, callbackURL: "/" }
+          : { callbackURL: "/" },
+      );
       if (deleteError) {
         setError(describeDeleteError(deleteError));
         return;
@@ -35,7 +55,7 @@ export function DeleteAccountSection({ email }: DeleteAccountSectionProps) {
       setError("Couldn't start account deletion. Please try again.");
     } finally {
       setIsSending(false);
-      setShowConfirm(false);
+      closeConfirm();
     }
   }
 
@@ -94,13 +114,27 @@ export function DeleteAccountSection({ email }: DeleteAccountSectionProps) {
         message={`This permanently deletes your account and cannot be undone. We'll send a confirmation link to ${email} — deletion only happens after you open it.`}
         confirmLabel="Email me a confirmation link"
         confirmVariant="danger"
-        typeToConfirm={email}
+        typeToConfirm={confirmWithPassword ? undefined : email}
+        confirmDisabled={confirmWithPassword && password.length === 0}
         loading={isSending}
         onConfirm={handleDelete}
         onCancel={() => {
-          if (!isSending) setShowConfirm(false);
+          if (!isSending) closeConfirm();
         }}
-      />
+      >
+        {confirmWithPassword && (
+          <div className="mt-4">
+            <Input
+              label="Confirm with your password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoFocus
+            />
+          </div>
+        )}
+      </ConfirmDialog>
     </>
   );
 }
