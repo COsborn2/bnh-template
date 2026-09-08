@@ -4,6 +4,9 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { describeAuthCallbackError } from "@/lib/auth-errors";
+import { useConsumedErrorParam } from "@/hooks/use-consumed-error-param";
+import { getTurnstileTokenResetValue } from "@/lib/turnstile";
 import { GoogleSignInButton } from "@/components/ui/google-sign-in-button";
 import { Input } from "@/components/ui/input";
 import { TurnstileSubmitButton } from "@/components/ui/turnstile-submit-button";
@@ -14,7 +17,15 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState(() =>
+    getTurnstileTokenResetValue(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+  );
+
+  // The API's onAPIError.errorURL lands OAuth callback failures here with
+  // ?error=<code>. (Any authClient.linkSocial call must pass its own
+  // errorCallbackURL — connected-accounts-section.tsx does — otherwise its
+  // failures land here too.)
+  const callbackError = useConsumedErrorParam(describeAuthCallbackError);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -95,8 +106,9 @@ export function LoginForm() {
       <TurnstileSubmitButton
         isLoading={isLoading}
         loadingText="Signing in..."
-        onToken={setTurnstileToken}
-        error={error}
+        token={turnstileToken}
+        onTokenChange={setTurnstileToken}
+        error={error || callbackError}
         className="mt-1"
       >
         Sign in

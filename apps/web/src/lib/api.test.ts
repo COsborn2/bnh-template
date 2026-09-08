@@ -1,49 +1,31 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { jsonResponse, mockFetch, restoreFetch } from "@/test/fetch-mock";
 import { ApiError, api } from "./api";
 
-const originalFetch = globalThis.fetch;
-
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
+afterEach(restoreFetch);
 
 describe("api", () => {
   test("returns parsed JSON for JSON responses", async () => {
-    globalThis.fetch = mock(
-      async () =>
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-    ) as unknown as typeof fetch;
+    const calls = mockFetch(() => jsonResponse({ ok: true }));
 
     await expect(api("/test")).resolves.toEqual({ ok: true });
+    expect(calls).toEqual(["/api/test"]);
   });
 
   test("treats 204 responses as successful empty responses", async () => {
-    globalThis.fetch = mock(
-      async () => new Response(null, { status: 204 }),
-    ) as unknown as typeof fetch;
+    mockFetch(() => new Response(null, { status: 204 }));
 
     await expect(api("/empty", { method: "POST" })).resolves.toBeUndefined();
   });
 
   test("treats empty success bodies as successful empty responses", async () => {
-    globalThis.fetch = mock(
-      async () => new Response("", { status: 200 }),
-    ) as unknown as typeof fetch;
+    mockFetch(() => new Response("", { status: 200 }));
 
     await expect(api("/empty")).resolves.toBeUndefined();
   });
 
   test("throws ApiError with server message on failed responses", async () => {
-    globalThis.fetch = mock(
-      async () =>
-        new Response(JSON.stringify({ error: "Nope" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }),
-    ) as unknown as typeof fetch;
+    mockFetch(() => jsonResponse({ error: "Nope" }, 400));
 
     await expect(api("/bad")).rejects.toEqual(new ApiError(400, "Nope"));
   });

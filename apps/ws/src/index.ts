@@ -40,6 +40,7 @@ import {
   ROSTER_HEARTBEAT_MS,
   ROSTER_STALE_MS,
 } from "./presence.js";
+import { createCoalescedRunner } from "./revalidate-scheduler.js";
 
 const authorizeUrl = process.env.WS_AUTHORIZE_URL;
 const eventsUrl = process.env.WS_EVENTS_URL;
@@ -62,6 +63,9 @@ initTopics({
   onLastUnsubscribe: (topic) => {
     lastPresenceJson.delete(topic);
     unsubscribeFromTopic(topic);
+    // Unsubscribing from Redis stops all future revalidate messages for the
+    // topic, so nothing else would ever clean up its debounce state.
+    clearRevalidateState(topic);
   },
 });
 
@@ -214,26 +218,54 @@ function disconnectUser(topic: string, userId: string): void {
   }
 }
 
+/** Each revalidated user costs an HTTP round trip to the authorize endpoint.
+ *  Unbounded, a full-topic sweep on a busy topic was a self-inflicted DoS on
+ *  the API — and every permission change publishes a sweep, so a filling
+ *  topic was O(N²) serial calls. Cap the in-flight calls per sweep and
+ *  debounce/coalesce bursts per topic (see revalidate-scheduler.ts). */
+const REVALIDATE_CONCURRENCY = 8;
+const REVALIDATE_DEBOUNCE_MS = 300;
+
+/** `scheduleRevalidateTopic` is the entry point for `revalidate-topic`
+ *  control messages; `clearRevalidateState` runs when a topic's last local
+ *  subscriber leaves (see `initTopics` above). */
+const { schedule: scheduleRevalidateTopic, clear: clearRevalidateState } =
+  createCoalescedRunner({
+    debounceMs: REVALIDATE_DEBOUNCE_MS,
+    isActive: (topic) => (getTopicClients(topic)?.size ?? 0) > 0,
+    run: revalidateTopic,
+  });
+
 /** Re-run subscription authorization for every local subscriber of a topic
  *  and drop the ones whose access was revoked. */
 async function revalidateTopic(topic: string): Promise<void> {
   const clients = getTopicClients(topic);
   if (!clients || clients.size === 0) return;
 
-  // One authorization check per user, not per socket.
+  // One authorization check per user, not per socket — and at most
+  // REVALIDATE_CONCURRENCY of them in flight at once.
   const sockets = [...clients];
+  const userIds = [...new Set(sockets.map((ws) => ws.data.userId))];
   const verdicts = new Map<string, boolean | null>();
-  for (const ws of sockets) {
-    if (!verdicts.has(ws.data.userId)) {
-      verdicts.set(
-        ws.data.userId,
-        await authorizeSubscription(topic, ws.data.userId)
-      );
+  for (let i = 0; i < userIds.length; i += REVALIDATE_CONCURRENCY) {
+    const chunk = userIds.slice(i, i + REVALIDATE_CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map(
+        async (userId) =>
+          [userId, await authorizeSubscription(topic, userId)] as const
+      )
+    );
+    for (const [userId, verdict] of results) {
+      verdicts.set(userId, verdict);
     }
   }
 
   let changed = false;
   for (const ws of sockets) {
+    // Closed during the authorize round trips — its close handler already
+    // removed it, so there is nothing to unsubscribe or tell. readyState 1 =
+    // OPEN.
+    if (ws.readyState !== 1) continue;
     const allowed = verdicts.get(ws.data.userId);
     if (allowed === null) {
       // Auth service unavailable — keep the subscription rather than kicking
@@ -283,7 +315,7 @@ function handleRealtimeMessage(topic: string, message: RealtimeMessage): void {
       return;
 
     case "revalidate-topic":
-      void revalidateTopic(topic);
+      scheduleRevalidateTopic(topic);
       return;
 
     case "presence-sync":
@@ -450,7 +482,7 @@ const server = Bun.serve<WsData>({
         let auth: AuthResult | null = null;
         if (cookieHeader) {
           try {
-            auth = await validateSession(cookieHeader);
+            auth = await validateSession(cookieHeader, request.headers);
           } catch (error) {
             // Don't collapse infrastructure failures into 401 — clients (and
             // the reconnect loop) must be able to tell "my session is

@@ -6,12 +6,14 @@
  * is deleted, for BOTH the self-service /delete-user flow and admin-initiated
  * removal. Throwing from here aborts the deletion.
  *
- * CAVEAT: the cron unverified-account sweep (apps/cron/src/cleanup.ts Step 3)
- * deletes user rows directly via drizzle, WITHOUT going through Better Auth,
- * so this hook does not run for those deletions. That is safe today because
- * unverified accounts cannot sign in and therefore own no app content — but
- * if this function ever gains logic that applies to unverified users, mirror
- * it in the cron step or move it to a shared package both apps import.
+ * CAVEAT: two places delete user rows directly via drizzle, WITHOUT going
+ * through Better Auth, so the hook does not fire for them: the cron
+ * unverified-account sweep (apps/cron/src/cleanup.ts Step 3), which is safe
+ * because unverified accounts cannot sign in and therefore own no app
+ * content, and the seed's reset of its own users (apps/api/src/db/seed.ts),
+ * which calls this function explicitly before deleting. If this function ever
+ * gains logic that applies to unverified users, mirror it in the cron step or
+ * move it to a shared package both apps import.
  *
  * The starter schema only contains Better Auth's own tables, which clean
  * themselves up via ON DELETE CASCADE (sessions, accounts), so this is a

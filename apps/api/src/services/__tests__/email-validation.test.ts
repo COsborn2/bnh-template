@@ -9,6 +9,7 @@ mock.module("node:dns/promises", () => ({
 }));
 
 import {
+  emailDomain,
   initDisposableEmailBlocklist,
   isDisposableEmail,
   checkMxRecords,
@@ -24,6 +25,25 @@ beforeEach(() => {
   resolveMxMock.mockImplementation(() =>
     Promise.resolve([{ exchange: "mail.example.com", priority: 10 }]),
   );
+});
+
+describe("emailDomain", () => {
+  it("extracts the lowercased domain", () => {
+    expect(emailDomain("alice@Corp.COM")).toBe("corp.com");
+  });
+
+  it("uses the last @ for quoted-local-part edge cases", () => {
+    expect(emailDomain('"a@b"@corp.com')).toBe("corp.com");
+  });
+
+  it("returns null without an @", () => {
+    expect(emailDomain("not-an-email")).toBeNull();
+  });
+
+  it("returns null for a trailing @", () => {
+    expect(emailDomain("alice@")).toBeNull();
+    expect(emailDomain("alice@   ")).toBeNull();
+  });
 });
 
 describe("isDisposableEmail", () => {

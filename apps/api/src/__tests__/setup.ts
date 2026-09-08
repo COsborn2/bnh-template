@@ -94,9 +94,10 @@ export const testAuth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/sign-up/email") {
-        const email = (ctx.body as Record<string, unknown>)?.email;
-        if (email) {
-          const result = await validateEmailDomain(email as string);
+        const body = ctx.body as Record<string, unknown> | undefined;
+        const email = body?.email;
+        if (typeof email === "string") {
+          const result = await validateEmailDomain(email);
           if (!result.valid) {
             throw new APIError("BAD_REQUEST", {
               message: result.reason || "Invalid email address",
@@ -115,7 +116,7 @@ const app = new Hono().basePath("/api");
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-app.on(["POST", "GET"], "/auth/**", (c) => {
+app.on(["POST", "GET"], "/auth/*", (c) => {
   return testAuth.handler(c.req.raw);
 });
 

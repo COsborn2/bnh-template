@@ -60,7 +60,7 @@ publish or reinstall step.
 - Email/password authentication with email verification
 - Google OAuth support that can be disabled by leaving credentials unset
 - Password reset and password-changed email flows
-- Self-service change-email and delete-account flows, both confirmed by email
+- Self-service change-email and delete-account flows, both confirmed by email, plus connected-accounts (link/unlink Google) and a set-password path for OAuth-only users, all on the settings page
 - Username support with availability checking
 - Admin API and built-in admin UI
 - Cloudflare Turnstile on auth flows
@@ -73,7 +73,8 @@ publish or reinstall step.
 - Proxy-ready deployment topology for Railway and similar platforms
 - Dockerfiles for each deployable service
 - Gated CI/CD: GHCR image publishing plus a single Railway environment patch per deploy
-- API tests covering auth, admin, security, and usernames
+- Security headers on every web response (HSTS, COOP, a skeleton CSP, X-Frame-Options, nosniff, Referrer-Policy)
+- API tests covering auth, admin, security, and usernames; component tests for the web UI
 
 ## Monorepo Structure
 
@@ -121,6 +122,8 @@ bun run db:migrate
 bun run dev
 ```
 
+`next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` (Next 16's agent rules) and both `next dev` and `next build` rewrite `apps/web/next-env.d.ts`. All three are committed so the tree stays clean; re-commit them when a Next upgrade changes their content. `next build` also downloads the DM Sans and Fraunces fonts from Google at build time (`next/font/google`) and self-hosts them, so an offline build fails at that step.
+
 Local dev URLs:
 
 - Web: [http://localhost:3000](http://localhost:3000)
@@ -160,7 +163,7 @@ These are used by the API locally, and several are also shared by the WebSocket 
 | `BETTER_AUTH_URL` | `http://localhost:3000` | Required in deployed environments. Auth callbacks and email links derive from it |
 | `PORT` | `3001` | API only |
 | `APP_NAME` | `MyApp` | Optional |
-| `RESEND_API_KEY` | `re_your_key_here` | Optional locally |
+| `RESEND_API_KEY` | empty | Optional locally — emails log to the console when unset; any non-empty value is used as a real Resend key |
 | `EMAIL_FROM` | `MyApp <onboarding@resend.dev>` | Optional |
 | `TURNSTILE_SECRET_KEY` | Cloudflare test key | Required in deployed environments |
 | `GOOGLE_CLIENT_ID` | empty | Optional |
@@ -171,6 +174,7 @@ These are used by the API locally, and several are also shared by the WebSocket 
 | `WS_EVENTS_URL` | `http://localhost:3001/api/ws/events` | Required for `apps/ws` |
 | `WS_API_SECRET` | `dev-ws-secret-change-in-production` | Required for API ↔ WS internal auth |
 | `DB_QUERY_LOGGING` | unset | Optional; set to `true` to log SQL queries |
+| `DB_POOL_SIZE` | unset (`10`) | Optional; postgres-js connections per process. Must be a positive integer — anything else fails fast at startup |
 | `LOG_LEVEL` | unset (`info`) | Optional; winston log level for the API's structured JSON logs |
 | `RATE_LIMITS_DISABLED` | `false` | Optional; set to `true` to skip app rate limits in dev. Ignored in production |
 | `HONEYCOMB_API_KEY` and other `OTEL_*` vars | unset | Optional; see [Observability](#observability). Tracing is a no-op when unset |
@@ -181,6 +185,7 @@ These are used by the API locally, and several are also shared by the WebSocket 
 |---|---|---|
 | `NEXT_PUBLIC_APP_NAME` | `MyApp` | Optional |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare test key | Required in deployed environments |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Optional; the canonical public origin (same value as `BETTER_AUTH_URL`), baked in at build time. Sets `metadataBase` so canonical/Open Graph URLs are absolute; unset or empty means no `metadataBase` |
 | `NEXT_ALLOWED_DEV_ORIGINS` | unset | Optional, dev only; comma-separated extra origins allowed to reach the Next dev server (LAN/phone testing) |
 
 ### Deployment-only variables
@@ -189,7 +194,7 @@ These are not needed for local dev, but they matter in Railway:
 
 | Variable | Used by | Notes |
 |---|---|---|
-| `API_INTERNAL_URL` | `apps/web` | Required in Railway. Used by the Next.js `/api/*` rewrite and by `apps/web/src/lib/server-api.ts` for server-side data fetching |
+| `API_INTERNAL_URL` | `apps/web` | Required in Railway. Used by the Next.js `/api/*` rewrite, by `apps/web/src/lib/server-api.ts` for server-side data fetching, and by `apps/web/src/proxy.ts`, which refreshes better-auth's cookie cache (`GET /api/auth/get-session`) on SSR page loads when the session-data cookie has expired |
 | `WS_INTERNAL_URL` | `apps/web` | Lets Next.js rewrite `/ws` to the private WebSocket service URL when web handles the request directly |
 | `RAILWAY_DOCKERFILE_PATH` | each Railway service | Only needed for the fallback where Railway builds from source instead of pulling GHCR images |
 
@@ -199,13 +204,28 @@ These are not needed for local dev, but they matter in Railway:
 |---|---|
 | `bun run dev` | Start API, web, and other watch-mode tasks |
 | `bun run build` | Build all packages and apps |
-| `bun run lint` | Lint the repo |
-| `bun run test` | Run the test suite |
+| `bun run lint` | Lint the repo (ESLint) and typecheck every workspace (`turbo lint`) — CI runs exactly this |
+| `bun run test` | Run the test suite (`turbo test`; the API suites need `DATABASE_URL` and `REDIS_URL`) |
+| `bun run test:integration` | Run the whole test suite against a disposable dockerized Postgres + Redis on off-ports (54329/63799): migrates first, needs no `.env`, tears down on exit |
 | `bun run db:generate` | Generate a Drizzle migration |
 | `bun run db:migrate` | Apply pending migrations |
-| `bun run db:seed` | Seed local example data using `.env` |
+| `bun run db:seed` | Seed local example data using `.env`: creates `alice@email.com` (admin) and `bob@email.com` with the password `MyAppSeed!2026#Local7Hq` through better-auth's real sign-up (so it needs outbound network for the Have I Been Pwned check and the DNS MX lookup). Re-running resets both users |
 
 `bun run db:migrate` runs the same migration runner (`apps/migrate/src/migrate.ts`) that the production `migrate` image runs, so local migrations exercise the exact production code path and print friendly guidance if Postgres is unreachable. `bun run db:generate` still uses drizzle-kit.
+
+### Running individual services
+
+```bash
+bun run --filter=@app/api dev
+bun run --filter=@app/web dev
+bun run --filter=@app/ws dev
+```
+
+### Testing notes
+
+- `bun test` inside a workspace runs that workspace alone. Web component tests are colocated `*.test.tsx` files that render with `renderToString` from `react-dom/server` (no DOM); `apps/web/src/test/` holds the shared helpers (`fetch-mock.ts`, `router-stub.tsx`).
+- bun's `mock.module` registrations are process-global across every test file in a run (for example `apps/api/src/lib/rate-limits.test.ts` stubs `./redis.js`). A suite that must load the real module imports it as `./module.js?real` and casts to `typeof import("./module.js")` — see `apps/api/src/types/query-specifier-imports.d.ts`.
+- The API suites (`apps/api/src/__tests__`) hit the real database and Redis; `bun run test:integration` is the zero-setup way to run them locally.
 
 ## Health Checks
 
@@ -270,12 +290,15 @@ errors return a sanitized 500 and are logged as `api.unhandled_error`.
 
 | What | Where |
 |---|---|
-| API routes | `apps/api/src/app.ts` |
+| API routes | `apps/api/src/app.ts` (inline examples) and `apps/api/src/routes/` (`admin.ts`, `account.ts`, `ws.ts` mounted with `app.route`). Helpers: `readPagination`/`readEnumParam` for list endpoints, `rateLimitedOr429(() => consumeX(...))` for per-user limits inside a handler, `isUniqueViolation(err)` to map a UNIQUE-index race loser to `conflict()`, `guardImpersonation(c.get("auth"))` before writes a support session must not perform |
 | Realtime authorization and event handling | `apps/api/src/routes/ws.ts` |
-| Frontend routes | `apps/web/src/app/` |
+| Frontend routes | `apps/web/src/app/`. Signed-in pages (`/dashboard`, `/settings`) are server components that gate with `serverApiOrNull("/auth/get-session")` + `redirect("/auth/login")` and render a `*-client.tsx` shell with the SSR user as `initialUser` — follow that pattern for new signed-in pages |
+| Web UI kit | `apps/web/src/components/ui/`: `Modal`/`ModalOverlay` (portal, scroll lock, Escape, focus trap; `ConfirmDialog` is built on it), `Pagination` + `PAGE_SIZE`, `DataTable` (horizontal scroll, `onRowIntent`), `Toaster` (error toasts persist), `PageLoading`. Hooks in `apps/web/src/hooks/`: `useDismissOnOutside`, `useFocusTrap`, `useDocumentClass`, `usePrefetchOnIntent`, `useWebSocket`. The z-index contract (banner 40, menus 50, modals 100/200, confirmations 300, toasts 400) is documented in `globals.css` |
 | Database schema | `packages/db/src/schema.ts` |
 | Scheduled cleanup job and retention windows | `apps/cron/src/` |
-| Email templates | `packages/email/` |
+| Email templates | `packages/email/` (shared `emailStyles`/`emailColors` tokens live in `templates/layout.tsx`) |
+| Icons in server components | `apps/web/src/components/ui/fa-icon.tsx` — use `FaIcon` in server components and root-layout chrome; `FontAwesomeIcon` only inside `"use client"` modules (ESLint enforces this) |
+| List endpoints | `apps/api/src/lib/pagination.ts` (`readPagination`, `readEnumParam`) on the API and `apps/web/src/components/ui/pagination.tsx` + `apps/web/src/lib/pagination.ts` (`PAGE_SIZE`) on the web |
 | Shared protocol types | `packages/shared/` |
 | Proxy behavior | `infra/proxy/Caddyfile` in the template repo — the proxy is generic and env-driven, so scaffolded apps run its published image (`ghcr.io/cosborn2/bnh-template/proxy:latest`) rather than carrying the source |
 
@@ -297,6 +320,8 @@ The template includes:
 - Admin API endpoints exposed through better-auth
 - A built-in `/admin` UI for users with the `admin` role
 - User search, moderation, impersonation, session revocation, and deletion flows
+
+The users list is served by `GET /api/admin/users` (`apps/api/src/routes/admin.ts`), which combines search, role, status and verified filters server-side and returns a true total. Impersonate/stop use soft navigation (`router.push` + `router.refresh`), and the banner re-probes whenever the signed-in user changes. `bun run db:seed` creates an admin user for local development.
 
 To promote a user manually:
 

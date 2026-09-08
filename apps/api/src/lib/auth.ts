@@ -270,7 +270,33 @@ export const auth = betterAuth({
       // section of DEPLOYMENT.md) overwrites X-Real-IP and X-Forwarded-For
       // with the resolved client IP, so these are trustworthy.
       ipAddressHeaders: ["x-real-ip", "x-forwarded-for"],
+      // Without this list better-auth only accepts a SINGLE-value forwarded
+      // header, so any multi-hop x-forwarded-for chain (a client that sends
+      // its own spoofed value, traffic that reaches a service's own Railway
+      // domain instead of the proxy, an extra appending hop) resolved to no
+      // IP at all and every such request shared one rate-limit bucket.
+      // Mirrors infra/proxy/Caddyfile's `trusted_proxies static
+      // private_ranges 100.64.0.0/10`: chains are stripped right-to-left
+      // through these ranges and the first untrusted hop is the client.
+      trustedProxies: [
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "100.64.0.0/10",
+        "fd00::/8",
+        "::1/128",
+      ],
     },
+  },
+
+  // Where OAuth callback failures land the user (with ?error=<code>). The
+  // common one is state_mismatch: a Google callback finished more than 10
+  // minutes after it started, or was replayed/bookmarked. Without this,
+  // better-auth dead-ends the user on its bare /api/auth/error page; the
+  // login page renders a friendly notice for the code instead.
+  onAPIError: {
+    errorURL: `${betterAuthBaseUrl}/auth/login`,
   },
 
   rateLimit: {
@@ -282,6 +308,7 @@ export const auth = betterAuth({
     // allowed within that window for the matched auth route.
     customRules: {
       "/sign-in/email": { window: 10, max: 3 },
+      "/sign-in/username": { window: 10, max: 3 },
       "/sign-up/email": { window: 60 * 60, max: 10 },
       "/request-password-reset": { window: 10 * 60, max: 3 },
       "/send-verification-email": { window: 10 * 60, max: 3 },
@@ -295,7 +322,9 @@ export const auth = betterAuth({
         // Runs immediately before any user row deleted through Better Auth —
         // covers BOTH the self-service /delete-user (callback) flow and admin
         // removal. The cron unverified-account sweep (apps/cron/src/cleanup.ts
-        // Step 3) deletes user rows directly and BYPASSES this hook. Throwing
+        // Step 3) and the seed's reset (apps/api/src/db/seed.ts) delete user
+        // rows directly and BYPASS this hook (the seed calls the cleanup
+        // itself). Throwing
         // aborts the deletion. Handles the cleanup the FK cascade can't (see
         // the service).
         async before(user) {
@@ -309,11 +338,15 @@ export const auth = betterAuth({
     captcha({
       provider: "cloudflare-turnstile",
       secretKey: process.env.TURNSTILE_SECRET_KEY!,
-      // Setting `endpoints` replaces Better Auth's defaults, so keep the
-      // default protected auth routes and add direct verification resends.
+      // Setting `endpoints` replaces Better Auth's defaults, so list every
+      // credential endpoint explicitly: the plugin matches paths exactly, and
+      // the username plugin's /sign-in/username is a separate route that the
+      // login form also submits (with the Turnstile header) for identifiers
+      // without an "@". Verification resends are direct calls from the app.
       endpoints: [
         "/sign-up/email",
         "/sign-in/email",
+        "/sign-in/username",
         "/request-password-reset",
         "/send-verification-email",
       ],
@@ -328,12 +361,14 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/sign-up/email") {
-        const body = ctx.body as Record<string, unknown>;
+        const body = ctx.body as Record<string, unknown> | undefined;
 
-        // Validate email domain (disposable email blocking + MX check)
+        // Validate email domain (disposable email blocking + MX check). This
+        // hook runs before the endpoint's own body validation, so anything
+        // that isn't a string is left for better-auth to reject with a 400.
         const email = body?.email;
-        if (email) {
-          const result = await validateEmailDomain(email as string);
+        if (typeof email === "string") {
+          const result = await validateEmailDomain(email);
           if (!result.valid) {
             throw new APIError("BAD_REQUEST", {
               message: result.reason || "Invalid email address",

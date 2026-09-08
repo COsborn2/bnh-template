@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import type { BetterAuthRateLimitStorage, RateLimit } from "better-auth";
+import type { BetterAuthRateLimitStorage } from "better-auth";
 import type Redis from "ioredis";
 import {
   RateLimiterMemory,
@@ -7,6 +7,7 @@ import {
   type RateLimiterAbstract,
   type RateLimiterRes,
 } from "rate-limiter-flexible";
+import { tooManyRequests } from "./errors.js";
 import { getRedisClient } from "./redis.js";
 
 /**
@@ -33,7 +34,6 @@ export interface RateLimitPolicy {
 const DAY = 24 * 60 * 60;
 const HOUR = 60 * 60;
 const REDIS_PREFIX = "app:rl";
-const BETTER_AUTH_RATE_LIMIT_TTL_SECONDS = DAY;
 const BETTER_AUTH_RATE_LIMIT_PREFIX = `${REDIS_PREFIX}:better-auth`;
 const REDIS_COMMAND_TIMEOUT_MS = 500;
 
@@ -89,10 +89,6 @@ interface LimiterEntry {
 }
 
 let limiterEntries = new Map<string, LimiterEntry>();
-let betterAuthRateLimitMemory = new Map<
-  string,
-  { value: RateLimit; expiresAt: number }
->();
 let betterAuthConsumeMemory = new Map<
   string,
   { count: number; resetAt: number }
@@ -186,14 +182,12 @@ export function makeRateLimitKey(
   }
 }
 
-function betterAuthRateLimitKey(key: string): string {
-  return `${BETTER_AUTH_RATE_LIMIT_PREFIX}:${key}`;
-}
-
 /**
- * Dedicated counter keyspace for the atomic `consume` path, separate from the
- * JSON records the legacy `get`/`set` contract stores under
- * betterAuthRateLimitKey.
+ * Counter keyspace for the atomic `consume` path. The `:c:` segment keeps
+ * these counters distinct from the JSON records the retired `get`/`set`
+ * contract (better-auth < 1.7) wrote under the bare prefix, which may linger
+ * in Redis until their TTL expires; it must not change, or live windows reset
+ * on deploy.
  */
 function betterAuthConsumeKey(key: string): string {
   return `${BETTER_AUTH_RATE_LIMIT_PREFIX}:c:${key}`;
@@ -218,36 +212,6 @@ end
 return {count, ttl}
 `;
 
-function isBetterAuthRateLimit(value: unknown): value is RateLimit {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "key" in value &&
-    "count" in value &&
-    "lastRequest" in value &&
-    typeof value.key === "string" &&
-    typeof value.count === "number" &&
-    typeof value.lastRequest === "number"
-  );
-}
-
-function readBetterAuthMemory(key: string): RateLimit | null {
-  const entry = betterAuthRateLimitMemory.get(key);
-  if (!entry) return null;
-  if (Date.now() >= entry.expiresAt) {
-    betterAuthRateLimitMemory.delete(key);
-    return null;
-  }
-  return entry.value;
-}
-
-function writeBetterAuthMemory(key: string, value: RateLimit): void {
-  betterAuthRateLimitMemory.set(key, {
-    value,
-    expiresAt: Date.now() + BETTER_AUTH_RATE_LIMIT_TTL_SECONDS * 1000,
-  });
-}
-
 interface ConsumeRule {
   window: number;
   max: number;
@@ -263,10 +227,36 @@ interface ConsumeResult {
  * when Redis is unset or a command fails/times out. Synchronous, so it is
  * strict even under concurrent requests within this instance.
  */
-function consumeBetterAuthMemory(key: string, rule: ConsumeRule): ConsumeResult {
+// The fallback map otherwise grows by one entry per distinct ip|path for the
+// life of the process (no Redis in dev, or a long Redis outage in
+// production). Sweep expired windows once it gets big; better-auth's own
+// memory storage prunes on every consume for the same reason.
+const BETTER_AUTH_MEMORY_PRUNE_THRESHOLD = 10_000;
+
+function pruneBetterAuthMemory(now: number): void {
+  for (const [key, entry] of betterAuthConsumeMemory) {
+    if (now >= entry.resetAt) betterAuthConsumeMemory.delete(key);
+  }
+}
+
+/** Test-only visibility into the fallback map's size. */
+export function betterAuthMemorySizeForTests(): number {
+  return betterAuthConsumeMemory.size;
+}
+
+function consumeBetterAuthMemory(
+  key: string,
+  rule: ConsumeRule,
+): ConsumeResult {
   const now = Date.now();
   const entry = betterAuthConsumeMemory.get(key);
   if (!entry || now >= entry.resetAt) {
+    if (
+      !entry &&
+      betterAuthConsumeMemory.size >= BETTER_AUTH_MEMORY_PRUNE_THRESHOLD
+    ) {
+      pruneBetterAuthMemory(now);
+    }
     betterAuthConsumeMemory.set(key, {
       count: 1,
       resetAt: now + rule.window * 1000,
@@ -304,49 +294,13 @@ function withRedisTimeout<T>(operation: Promise<T>): Promise<T> {
 /**
  * Redis-backed storage for better-auth's built-in rate limiter, replacing
  * `storage: "database"` (which wrote a Postgres row per counted auth
- * request). Falls back to an in-process map when Redis is unset or a command
- * fails/times out, so auth keeps working through a Redis outage.
- *
- * `consume` is the path better-auth actually uses (an atomic single-step
- * check-and-increment, strict under concurrent bursts); `get`/`set` are kept
- * for backwards compatibility with the storage contract.
+ * request). Implements the `consume` contract (better-auth >= 1.7 dropped the
+ * legacy `get`/`set` members): an atomic single-step check-and-increment,
+ * strict under concurrent bursts. Falls back to an in-process counter when
+ * Redis is unset or a command fails/times out, so auth keeps working through
+ * a Redis outage.
  */
 export const betterAuthRateLimitStorage: BetterAuthRateLimitStorage = {
-  async get(key) {
-    const redis = getRedisClient();
-    if (!redis) return readBetterAuthMemory(key);
-
-    try {
-      const raw = await withRedisTimeout(redis.get(betterAuthRateLimitKey(key)));
-      if (!raw) return null;
-      const parsed: unknown = JSON.parse(raw);
-      return isBetterAuthRateLimit(parsed) ? parsed : null;
-    } catch (err) {
-      console.error("[rate-limit] Better Auth Redis get failed:", err);
-      return readBetterAuthMemory(key);
-    }
-  },
-  async set(key, value) {
-    const redis = getRedisClient();
-    if (!redis) {
-      writeBetterAuthMemory(key, value);
-      return;
-    }
-
-    try {
-      await withRedisTimeout(
-        redis.set(
-          betterAuthRateLimitKey(key),
-          JSON.stringify(value),
-          "EX",
-          BETTER_AUTH_RATE_LIMIT_TTL_SECONDS,
-        ),
-      );
-    } catch (err) {
-      console.error("[rate-limit] Better Auth Redis set failed:", err);
-      writeBetterAuthMemory(key, value);
-    }
-  },
   async consume(key, rule) {
     const redis = getRedisClient();
     if (!redis) return consumeBetterAuthMemory(key, rule);
@@ -438,6 +392,36 @@ async function refundRateLimit(policyId: string, key: string): Promise<void> {
 }
 
 /**
+ * A paired daily + hourly quota: both are probed first so an exhausted hour
+ * never burns a day point, then the day is consumed and the hour consumed
+ * or, if it fails, the day point refunded (best-effort, logged).
+ */
+async function consumeDayHourQuota(
+  dayPolicyId: string,
+  hourPolicyId: string,
+  key: string,
+  label: string,
+): Promise<void> {
+  await checkRateLimit(dayPolicyId, key);
+  await checkRateLimit(hourPolicyId, key);
+
+  await consumeRateLimit(dayPolicyId, key);
+  try {
+    await consumeRateLimit(hourPolicyId, key);
+  } catch (err) {
+    try {
+      await refundRateLimit(dayPolicyId, key);
+    } catch (refundErr) {
+      console.error(
+        `[rate-limit] Failed to refund daily ${label} quota:`,
+        refundErr,
+      );
+    }
+    throw err;
+  }
+}
+
+/**
  * Per-recipient cap on outbound auth emails (verification, password reset,
  * change-email, delete-account). Dual-window: consume the day bucket first,
  * then the hour bucket, refunding the day bucket if the hour bucket rejects
@@ -445,23 +429,12 @@ async function refundRateLimit(policyId: string, key: string): Promise<void> {
  */
 export async function consumeEmailSendLimit(to: string): Promise<void> {
   const key = makeRateLimitKey("email", to);
-  await checkRateLimit("email-send-target-day", key);
-  await checkRateLimit("email-send-target-hour", key);
-
-  await consumeRateLimit("email-send-target-day", key);
-  try {
-    await consumeRateLimit("email-send-target-hour", key);
-  } catch (err) {
-    try {
-      await refundRateLimit("email-send-target-day", key);
-    } catch (refundErr) {
-      console.error(
-        "[rate-limit] Failed to refund daily email quota:",
-        refundErr,
-      );
-    }
-    throw err;
-  }
+  await consumeDayHourQuota(
+    "email-send-target-day",
+    "email-send-target-hour",
+    key,
+    "email",
+  );
 }
 
 /**
@@ -471,6 +444,24 @@ export async function consumeEmailSendLimit(to: string): Promise<void> {
 export async function consumePublicEndpointLimit(ip: string): Promise<void> {
   const key = makeRateLimitKey("ip", ip);
   await consumeRateLimit("public-endpoint-ip-hour", key);
+}
+
+/**
+ * The route envelope for quota consumption: runs `consume` and turns a
+ * RateLimitError into the 429 with the human-readable reason; anything else
+ * propagates. Takes a callback (rather than a policy) so route tests can keep
+ * stubbing the individual consume functions.
+ */
+export async function rateLimitedOr429(
+  consume: () => Promise<void>,
+): Promise<void> {
+  try {
+    await consume();
+  } catch (err) {
+    if (isRateLimitError(err))
+      throw tooManyRequests(formatRateLimitReason(err));
+    throw err;
+  }
 }
 
 export function formatRateLimitReason(error: RateLimitError): string {
@@ -484,6 +475,5 @@ export function formatRateLimitReason(error: RateLimitError): string {
 
 export function resetRateLimitersForTests(): void {
   limiterEntries = new Map();
-  betterAuthRateLimitMemory = new Map();
   betterAuthConsumeMemory = new Map();
 }

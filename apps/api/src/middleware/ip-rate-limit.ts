@@ -1,20 +1,20 @@
 import { createMiddleware } from "hono/factory";
 import {
   consumePublicEndpointLimit,
-  formatRateLimitReason,
-  isRateLimitError,
+  rateLimitedOr429,
 } from "../lib/rate-limits.js";
-import { tooManyRequests } from "../lib/errors.js";
 
 type BunServerLike = {
   requestIP?: (req: Request) => { address: string } | null;
 };
 
-// Best-effort client IP. We trust `x-real-ip` first (set by our edge proxy —
-// the template's published proxy image), then fall back to the left-most
-// `x-forwarded-for` entry, then to Bun's per-request socket address. If
-// nothing is available we use a single shared bucket so an attacker can't
-// strip headers to evade the limit.
+// Best-effort client IP. We trust `x-real-ip` first (our edge proxy — the
+// template's published proxy image — overwrites it with the resolved client
+// address on every request), then fall back to the RIGHT-most
+// `x-forwarded-for` entry — that one was appended by the nearest proxy hop,
+// while left-hand entries are client-supplied and spoofable — then to Bun's
+// per-request socket address. If nothing is available we use a single shared
+// bucket so an attacker can't strip headers to evade the limit.
 function extractClientIp(
   headers: Headers,
   server: BunServerLike | undefined,
@@ -28,8 +28,8 @@ function extractClientIp(
 
   const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
-    const first = forwardedFor.split(",")[0]?.trim();
-    if (first) return first;
+    const last = forwardedFor.split(",").at(-1)?.trim();
+    if (last) return last;
   }
 
   const conn = server?.requestIP?.(request);
@@ -52,15 +52,7 @@ export function ipRateLimit(consume: (ip: string) => Promise<void>) {
     const server = c.env as BunServerLike | undefined;
     const ip = extractClientIp(c.req.raw.headers, server, c.req.raw);
 
-    try {
-      await consume(ip);
-    } catch (err) {
-      if (isRateLimitError(err)) {
-        throw tooManyRequests(formatRateLimitReason(err));
-      }
-      throw err;
-    }
-
+    await rateLimitedOr429(() => consume(ip));
     await next();
   });
 }

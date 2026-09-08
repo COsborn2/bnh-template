@@ -42,6 +42,38 @@ interface AdminSession {
   expiresAt?: Date | null;
 }
 
+async function loadUser(
+  userId: string,
+): Promise<{ user: AdminUser } | { error: true }> {
+  try {
+    const res = await authClient.admin.getUser({
+      query: { id: userId },
+    } as Parameters<typeof authClient.admin.getUser>[0]);
+    if (res.error || !res.data) return { error: true };
+    return { user: res.data as AdminUser };
+  } catch {
+    return { error: true };
+  }
+}
+
+async function loadSessions(
+  userId: string,
+): Promise<{ sessions: AdminSession[] } | { error: string }> {
+  try {
+    const res = await authClient.admin.listUserSessions({
+      userId,
+    } as Parameters<typeof authClient.admin.listUserSessions>[0]);
+    if (res.error) {
+      return { error: res.error.message ?? "Failed to fetch sessions" };
+    }
+    return { sessions: res.data.sessions ?? [] };
+  } catch (err: unknown) {
+    return {
+      error: err instanceof Error ? err.message : "Failed to fetch sessions",
+    };
+  }
+}
+
 export default function UserDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -49,11 +81,18 @@ export default function UserDetailPage() {
   const { data: sessionData } = useSession();
 
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
+  // Loading is derived from which user the data on screen belongs to, so the
+  // fetch callbacks never set loading state synchronously when the effect
+  // below calls them; a refetch after an action updates in place instead.
+  const [userLoadedFor, setUserLoadedFor] = useState<string | null>(null);
   const [userError, setUserError] = useState(false);
+  const userLoading = userLoadedFor !== userId;
 
   const [sessions, setSessions] = useState<AdminSession[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsLoadedFor, setSessionsLoadedFor] = useState<string | null>(
+    null,
+  );
+  const sessionsLoading = sessionsLoadedFor !== userId;
 
   // Role change
   const [selectedRole, setSelectedRole] = useState<string>("user");
@@ -73,50 +112,37 @@ export default function UserDetailPage() {
   const currentUserId = sessionData?.user?.id;
   const isSelf = currentUserId === userId;
 
-  // Fetch user
-  const fetchUser = useCallback(async () => {
-    setUserLoading(true);
-    setUserError(false);
-    try {
-      const res = await authClient.admin.getUser(
-        { query: { id: userId } } as Parameters<typeof authClient.admin.getUser>[0],
-      );
-      if (res.error || !res.data) {
-        setUserError(true);
-        setUserLoading(false);
-        return;
-      }
-      const u = res.data as AdminUser;
-      setUser(u);
-      setSelectedRole((u.role as string) ?? "user");
-    } catch {
-      setUserError(true);
-    } finally {
-      setUserLoading(false);
-    }
-  }, [userId]);
+  // Fetch user. The loaders are plain async functions that resolve to a
+  // result; state is applied in a `.then` callback so the effect below never
+  // sets state synchronously (react-hooks/set-state-in-effect).
+  const fetchUser = useCallback(
+    () =>
+      loadUser(userId).then((result) => {
+        if ("user" in result) {
+          setUser(result.user);
+          setUserError(false);
+          setSelectedRole((result.user.role as string) ?? "user");
+        } else {
+          setUserError(true);
+        }
+        setUserLoadedFor(userId);
+      }),
+    [userId],
+  );
 
   // Fetch sessions
-  const fetchSessions = useCallback(async () => {
-    setSessionsLoading(true);
-    try {
-      const res = await authClient.admin.listUserSessions(
-        { userId } as Parameters<
-          typeof authClient.admin.listUserSessions
-        >[0],
-      );
-      if (res.error) {
-        toast(res.error.message ?? "Failed to fetch sessions", "error");
-        setSessionsLoading(false);
-        return;
-      }
-      setSessions(res.data.sessions ?? []);
-    } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to fetch sessions", "error");
-    } finally {
-      setSessionsLoading(false);
-    }
-  }, [userId]);
+  const fetchSessions = useCallback(
+    () =>
+      loadSessions(userId).then((result) => {
+        if ("sessions" in result) {
+          setSessions(result.sessions);
+        } else {
+          toast(result.error, "error");
+        }
+        setSessionsLoadedFor(userId);
+      }),
+    [userId],
+  );
 
   useEffect(() => {
     fetchUser();
@@ -138,7 +164,10 @@ export default function UserDetailPage() {
       toast(`Role updated to ${selectedRole}`, "success");
       fetchUser();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to update role", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to update role",
+        "error",
+      );
     }
   }
 
@@ -170,9 +199,9 @@ export default function UserDetailPage() {
 
   async function handleUnban() {
     try {
-      const res = await authClient.admin.unbanUser(
-        { userId } as Parameters<typeof authClient.admin.unbanUser>[0],
-      );
+      const res = await authClient.admin.unbanUser({ userId } as Parameters<
+        typeof authClient.admin.unbanUser
+      >[0]);
       if (res.error) {
         toast(res.error.message ?? "Failed to unban user", "error");
         return;
@@ -180,18 +209,19 @@ export default function UserDetailPage() {
       toast("User unbanned", "success");
       fetchUser();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to unban user", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to unban user",
+        "error",
+      );
     }
   }
 
   async function handleRevokeAll() {
     setRevokeAllLoading(true);
     try {
-      const res = await authClient.admin.revokeUserSessions(
-        { userId } as Parameters<
-          typeof authClient.admin.revokeUserSessions
-        >[0],
-      );
+      const res = await authClient.admin.revokeUserSessions({
+        userId,
+      } as Parameters<typeof authClient.admin.revokeUserSessions>[0]);
       if (res.error) {
         toast(res.error.message ?? "Failed to revoke sessions", "error");
         return;
@@ -200,7 +230,10 @@ export default function UserDetailPage() {
       setRevokeAllOpen(false);
       fetchSessions();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to revoke sessions", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to revoke sessions",
+        "error",
+      );
     } finally {
       setRevokeAllLoading(false);
     }
@@ -209,20 +242,26 @@ export default function UserDetailPage() {
   async function handleImpersonate() {
     setImpersonateLoading(true);
     try {
-      const res = await authClient.admin.impersonateUser(
-        { userId } as Parameters<
-          typeof authClient.admin.impersonateUser
-        >[0],
-      );
+      const res = await authClient.admin.impersonateUser({
+        userId,
+      } as Parameters<typeof authClient.admin.impersonateUser>[0]);
       if (res.error) {
         toast(res.error.message ?? "Failed to impersonate user", "error");
         return;
       }
       setImpersonateOpen(false);
-      // Hard reload to pick up the new impersonation session cookie
-      window.location.href = "/dashboard";
+      // Soft navigation: the admin client plugin flips the session signal
+      // after /admin/impersonate-user, so useSession() refetches on its own
+      // (the impersonation banner keys its probe off the new user id), and
+      // router.refresh() re-renders /dashboard on the server under the
+      // impersonated session instead of serving the admin's cached payload.
+      router.push("/dashboard");
+      router.refresh();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to impersonate user", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to impersonate user",
+        "error",
+      );
     } finally {
       setImpersonateLoading(false);
     }
@@ -231,9 +270,9 @@ export default function UserDetailPage() {
   async function handleDelete() {
     setDeleteLoading(true);
     try {
-      const res = await authClient.admin.removeUser(
-        { userId } as Parameters<typeof authClient.admin.removeUser>[0],
-      );
+      const res = await authClient.admin.removeUser({ userId } as Parameters<
+        typeof authClient.admin.removeUser
+      >[0]);
       if (res.error) {
         toast(res.error.message ?? "Failed to delete user", "error");
         return;
@@ -242,7 +281,10 @@ export default function UserDetailPage() {
       setDeleteOpen(false);
       router.push("/admin/users");
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to delete user", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to delete user",
+        "error",
+      );
     } finally {
       setDeleteLoading(false);
     }
@@ -250,11 +292,9 @@ export default function UserDetailPage() {
 
   async function handleRevokeSession(token: string) {
     try {
-      const res = await authClient.admin.revokeUserSession(
-        { sessionToken: token } as Parameters<
-          typeof authClient.admin.revokeUserSession
-        >[0],
-      );
+      const res = await authClient.admin.revokeUserSession({
+        sessionToken: token,
+      } as Parameters<typeof authClient.admin.revokeUserSession>[0]);
       if (res.error) {
         toast(res.error.message ?? "Failed to revoke session", "error");
         return;
@@ -262,7 +302,10 @@ export default function UserDetailPage() {
       toast("Session revoked", "success");
       fetchSessions();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : "Failed to revoke session", "error");
+      toast(
+        err instanceof Error ? err.message : "Failed to revoke session",
+        "error",
+      );
     }
   }
 
@@ -285,7 +328,9 @@ export default function UserDetailPage() {
         const ua: string = s.userAgent ?? "";
         return (
           <span className="text-xs" title={ua}>
-            {ua.length > 60 ? `${ua.slice(0, 60)}...` : ua || <span className="text-text-muted">&mdash;</span>}
+            {ua.length > 60
+              ? `${ua.slice(0, 60)}...`
+              : ua || <span className="text-text-muted">&mdash;</span>}
           </span>
         );
       },
@@ -294,17 +339,21 @@ export default function UserDetailPage() {
       key: "createdAt",
       header: "Created At",
       render: (s: AdminSession) =>
-        s.createdAt
-          ? new Date(s.createdAt).toLocaleString()
-          : <span className="text-text-muted">&mdash;</span>,
+        s.createdAt ? (
+          new Date(s.createdAt).toLocaleString()
+        ) : (
+          <span className="text-text-muted">&mdash;</span>
+        ),
     },
     {
       key: "expiresAt",
       header: "Expires At",
       render: (s: AdminSession) =>
-        s.expiresAt
-          ? new Date(s.expiresAt).toLocaleString()
-          : <span className="text-text-muted">&mdash;</span>,
+        s.expiresAt ? (
+          new Date(s.expiresAt).toLocaleString()
+        ) : (
+          <span className="text-text-muted">&mdash;</span>
+        ),
     },
     {
       key: "actions",
@@ -389,15 +438,21 @@ export default function UserDetailPage() {
         <div className="grid gap-2 text-sm">
           <div className="flex gap-2">
             <span className="font-medium text-text-muted w-28">Name</span>
-            <span className="text-text">{user.name ?? <span className="text-text-muted">&mdash;</span>}</span>
+            <span className="text-text">
+              {user.name ?? <span className="text-text-muted">&mdash;</span>}
+            </span>
           </div>
           <div className="flex gap-2">
             <span className="font-medium text-text-muted w-28">Email</span>
             <span className="text-text">
               {user.email}
-              {user.emailVerified && (
+              {user.emailVerified ? (
                 <span className="ml-2 rounded-full bg-accent-green/10 px-1.5 py-0.5 text-xs text-accent-green">
                   verified
+                </span>
+              ) : (
+                <span className="ml-2 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs text-text-muted">
+                  unverified
                 </span>
               )}
             </span>
@@ -405,7 +460,11 @@ export default function UserDetailPage() {
           <div className="flex gap-2">
             <span className="font-medium text-text-muted w-28">Username</span>
             <span className="text-text">
-              {user.username ? `@${user.username}` : <span className="text-text-muted">&mdash;</span>}
+              {user.username ? (
+                `@${user.username}`
+              ) : (
+                <span className="text-text-muted">&mdash;</span>
+              )}
             </span>
           </div>
           <div className="flex gap-2">
@@ -470,11 +529,7 @@ export default function UserDetailPage() {
               <option value="admin">Admin</option>
               <option value="user">User</option>
             </Select>
-            <Button
-              onClick={handleRoleUpdate}
-              disabled={isSelf}
-              size="sm"
-            >
+            <Button onClick={handleRoleUpdate} disabled={isSelf} size="sm">
               <FontAwesomeIcon icon={faShield} className="mr-1.5 h-3.5 w-3.5" />
               Update role
             </Button>
@@ -488,11 +543,11 @@ export default function UserDetailPage() {
           </label>
           {isBanned ? (
             <div>
-              <Button
-                onClick={handleUnban}
-                disabled={isSelf}
-              >
-                <FontAwesomeIcon icon={faCheck} className="mr-1.5 h-3.5 w-3.5" />
+              <Button onClick={handleUnban} disabled={isSelf}>
+                <FontAwesomeIcon
+                  icon={faCheck}
+                  className="mr-1.5 h-3.5 w-3.5"
+                />
                 Unban user
               </Button>
             </div>
@@ -517,11 +572,7 @@ export default function UserDetailPage() {
                 <option value="2592000">30 days</option>
                 <option value="">Permanent</option>
               </Select>
-              <Button
-                variant="danger"
-                onClick={handleBan}
-                disabled={isSelf}
-              >
+              <Button variant="danger" onClick={handleBan} disabled={isSelf}>
                 <FontAwesomeIcon icon={faBan} className="mr-1.5 h-3.5 w-3.5" />
                 Ban user
               </Button>
@@ -535,11 +586,11 @@ export default function UserDetailPage() {
             Revoke all sessions
           </label>
           <div>
-            <Button
-              variant="secondary"
-              onClick={() => setRevokeAllOpen(true)}
-            >
-              <FontAwesomeIcon icon={faRightFromBracket} className="mr-1.5 h-3.5 w-3.5" />
+            <Button variant="secondary" onClick={() => setRevokeAllOpen(true)}>
+              <FontAwesomeIcon
+                icon={faRightFromBracket}
+                className="mr-1.5 h-3.5 w-3.5"
+              />
               Revoke all sessions
             </Button>
           </div>
@@ -556,7 +607,10 @@ export default function UserDetailPage() {
               onClick={() => setImpersonateOpen(true)}
               disabled={isSelf}
             >
-              <FontAwesomeIcon icon={faUserSecret} className="mr-1.5 h-3.5 w-3.5" />
+              <FontAwesomeIcon
+                icon={faUserSecret}
+                className="mr-1.5 h-3.5 w-3.5"
+              />
               Impersonate user
             </Button>
           </div>

@@ -28,7 +28,9 @@ interface UseWebSocketOptions {
    * Called after the socket re-opens following a drop (not on first connect).
    * Subscriptions are re-delivered automatically, but the socket has no
    * replay buffer — refetch your data here to cover anything broadcast while
-   * disconnected.
+   * disconnected. If the refetch fails, tell the user (e.g. a toast:
+   * "Reconnected, but refreshing failed — reload if it looks stale"); a stale
+   * view behind a connected indicator is worse than an honest error.
    */
   onReconnect?: () => void;
   /**
@@ -57,6 +59,12 @@ export function useWebSocket({
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
   const shouldReconnectRef = useRef(enabled);
+  // Set when the server closes the socket ON PURPOSE (4000–4999). Those closes
+  // park the connection for the life of this mount — the fast-reconnect path
+  // below must not resurrect them, or a kicked user loops through reconnects
+  // on every tab switch. Readable synchronously from event listeners, unlike
+  // the render-facing `socketState`.
+  const stoppedRef = useRef(false);
   // Socket lifecycle, driven only from socket callbacks; the render-facing
   // `status` is derived from it plus `enabled` ("idle" = a connect attempt is
   // pending or in flight, "stopped" = the server ended the socket on purpose).
@@ -152,6 +160,7 @@ export function useWebSocket({
       // access revoked, session ended) — don't fight them by reconnecting.
       if (event.code >= 4000 && event.code <= 4999) {
         reconnectAttempt.current = 0;
+        stoppedRef.current = true;
         setSocketState("stopped");
         onServerCloseRef.current?.(event.code, event.reason);
         return;
@@ -219,6 +228,9 @@ export function useWebSocket({
 
   useEffect(() => {
     shouldReconnectRef.current = enabled;
+    // A deliberate re-enable / url change is allowed to dial again even after
+    // the server parked the previous socket.
+    stoppedRef.current = false;
 
     if (!enabled) {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
@@ -228,8 +240,31 @@ export function useWebSocket({
     }
 
     connect();
+
+    // Backoff caps at 30s, which is exactly wrong for the laptop-wake /
+    // network-restored case: the user is back NOW. Skip the remaining delay
+    // and reconnect immediately when the network returns or the tab becomes
+    // visible — but never disturb a socket that is open or already dialing
+    // (connect() only guards against OPEN, so the CONNECTING check here is
+    // what prevents a double dial).
+    const fastReconnect = () => {
+      if (!shouldReconnectRef.current || stoppedRef.current) return;
+      if (document.visibilityState === "hidden") return;
+      const ready = wsRef.current?.readyState;
+      if (ready === WebSocket.OPEN || ready === WebSocket.CONNECTING) return;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      // Treat the resulting open as a reconnect so onopen takes the resync
+      // path — the socket has no replay buffer.
+      reconnectAttempt.current = Math.max(reconnectAttempt.current, 1);
+      connectRef.current?.();
+    };
+    window.addEventListener("online", fastReconnect);
+    document.addEventListener("visibilitychange", fastReconnect);
+
     return () => {
       shouldReconnectRef.current = false;
+      window.removeEventListener("online", fastReconnect);
+      document.removeEventListener("visibilitychange", fastReconnect);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;

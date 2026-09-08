@@ -171,6 +171,51 @@ jobs:
       - name: Lint
         run: bun run lint
 
+  scaffold:
+    name: Scaffold
+    runs-on: ubuntu-latest
+    # Guards the template's own contract: `bun create bnh` must produce an app
+    # with every placeholder rewritten (bin/create.ts REPLACEMENT_FILES) that
+    # lints and typechecks against freshly resolved dependencies. Scaffolded
+    # apps have no bin/create.ts, so the job is a no-op there.
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Check for the scaffolder
+        id: scaffolder
+        run: |
+          if [ -f bin/create.ts ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No bin/create.ts in this repository; nothing to scaffold."
+          fi
+
+      - name: Scaffold an app and lint it
+        if: ${{ steps.scaffolder.outputs.present == 'true' }}
+        env:
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.invalid
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.invalid
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          (cd "$work" && bun "$GITHUB_WORKSPACE/bin/create.ts" smoke-app)
+          cd "$work/smoke-app"
+
+          pattern='\bMyApp\b|\bmyapp\b|@app/|bun-template'
+          if grep -rnE "$pattern" --exclude-dir=node_modules --exclude-dir=.git --exclude=bun.lock .; then
+            echo "::error::the scaffold still contains template placeholders (add the file to REPLACEMENT_FILES in bin/create.ts)"
+            exit 1
+          fi
+
+          bun run lint
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -274,10 +319,15 @@ jobs:
           context: ${{ matrix.context || '.' }}
           file: ${{ matrix.dockerfile }}
           push: false
+          # The web image is loaded into the local daemon so the startup smoke
+          # test below can actually run it.
+          load: ${{ matrix.service == 'web' }}
+          tags: ci-smoke/${{ matrix.service }}:pr
           cache-from: type=gha
           build-args: |
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'MyApp') || '' }}
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_URL={0}', vars.NEXT_PUBLIC_APP_URL || '') || '' }}
 
       - name: Extract image metadata
         if: ${{ github.event_name == 'push' }}
@@ -320,15 +370,61 @@ jobs:
           context: ${{ matrix.context || '.' }}
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: |
-            ${{ steps.image.outputs.sha_tag }}
-            ${{ steps.image.outputs.latest_tag }}
+          # Only the immutable sha tag is pushed here; `latest` is promoted
+          # below once the image has proved it boots.
+          tags: ${{ steps.image.outputs.sha_tag }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_NAME={0}', vars.NEXT_PUBLIC_APP_NAME || 'MyApp') || '' }}
             ${{ matrix.service == 'web' && format('NEXT_PUBLIC_TURNSTILE_SITE_KEY={0}', vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 'test') || '' }}
+            ${{ matrix.service == 'web' && format('NEXT_PUBLIC_APP_URL={0}', vars.NEXT_PUBLIC_APP_URL || '') || '' }}
+
+      # A successful `docker build` says nothing about whether the image can
+      # boot: next 16.3.1's standalone output shipped without the @swc/helpers
+      # esm files its runtime resolves on Node >= 22.12, so the web image built
+      # green here and then crash-looped in production with MODULE_NOT_FOUND.
+      # Run the image and require /health to answer before this job may pass
+      # (and, on push, before railway-deploy may run). On push this pulls back
+      # the image just published to GHCR, so it validates exactly the bytes
+      # production will receive.
+      - name: Smoke test web container startup
+        if: ${{ matrix.service == 'web' }}
+        env:
+          IMAGE: ${{ github.event_name == 'pull_request' && 'ci-smoke/web:pr' || steps.image.outputs.sha_tag }}
+        run: |
+          set -euo pipefail
+
+          docker run -d --name web-smoke -p 3000:3000 "$IMAGE"
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health >/dev/null 2>&1; then
+              echo "web container started and serves /health"
+              docker rm -f web-smoke >/dev/null
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' web-smoke)" != "true" ]; then
+              echo "web container exited before becoming healthy" >&2
+              break
+            fi
+            sleep 2
+          done
+
+          echo "::error::web image failed the startup smoke test"
+          docker inspect -f 'container state: {{.State.Status}} (exit code {{.State.ExitCode}})' web-smoke || true
+          docker logs web-smoke || true
+          exit 1
+
+      # `latest` is what a first-time deploy pulls (see DEPLOYMENT.md), so it
+      # must never name an image that failed the boot check above. Re-tagging
+      # the pushed manifest needs no rebuild.
+      - name: Promote image to latest
+        if: ${{ github.event_name == 'push' }}
+        env:
+          SHA_TAG: ${{ steps.image.outputs.sha_tag }}
+          LATEST_TAG: ${{ steps.image.outputs.latest_tag }}
+        run: docker buildx imagetools create -t "$LATEST_TAG" "$SHA_TAG"
 
       - name: Summarize published image
         if: ${{ github.event_name == 'push' }}
@@ -410,13 +506,14 @@ jobs:
   docker-images:
     name: Docker Images
     runs-on: ubuntu-latest
-    needs: [changes, lint, build, test, docker]
+    needs: [changes, lint, scaffold, build, test, docker]
     if: ${{ always() }}
     steps:
       - name: Verify affected image jobs
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           LINT_RESULT: ${{ needs.lint.result }}
+          SCAFFOLD_RESULT: ${{ needs.scaffold.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           TEST_RESULT: ${{ needs.test.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
@@ -427,6 +524,7 @@ jobs:
 
           echo "Changes result: ${CHANGES_RESULT}"
           echo "Lint result: ${LINT_RESULT}"
+          echo "Scaffold result: ${SCAFFOLD_RESULT}"
           echo "Build result: ${BUILD_RESULT}"
           echo "Test result: ${TEST_RESULT}"
           echo "Docker result: ${DOCKER_RESULT}"
@@ -440,8 +538,8 @@ jobs:
 
           # Fail — do not skip — when any upstream job failed, so this
           # aggregate is safe to use as the single required status check.
-          if [ "$LINT_RESULT" != "success" ] || [ "$BUILD_RESULT" != "success" ] || [ "$TEST_RESULT" != "success" ]; then
-            echo "Upstream lint, build, or test did not succeed." >&2
+          if [ "$LINT_RESULT" != "success" ] || [ "$SCAFFOLD_RESULT" != "success" ] || [ "$BUILD_RESULT" != "success" ] || [ "$TEST_RESULT" != "success" ]; then
+            echo "Upstream lint, scaffold, build, or test did not succeed." >&2
             exit 1
           fi
 
