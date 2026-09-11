@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@react-email/ui": "6.9.3",
-    "@types/bun": "^1.4.1",
+    "@types/bun": "^1.4.2",
     "@types/react": "^19.2.18",
     "react": "^19.2.8",
     "react-email": "6.9.3",
