@@ -10,7 +10,8 @@
     "./schema": "./src/schema.ts"
   },
   "scripts": {
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@app/otel": "workspace:*",
@@ -18,7 +19,7 @@
     "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
+    "@types/bun": "^1.4.1",
     "typescript": "^6.0.3"
   }
 }

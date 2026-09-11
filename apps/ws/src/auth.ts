@@ -62,7 +62,7 @@ function normalizeAuthResult(payload: unknown): AuthResult | null {
   if (session == null && user == null) return null;
   if (!isRecord(session) || !isRecord(user)) {
     throw new WsAuthContractError(
-      "WS auth response is missing session or user"
+      "WS auth response is missing session or user",
     );
   }
 
@@ -70,7 +70,7 @@ function normalizeAuthResult(payload: unknown): AuthResult | null {
   const userId = optionalString(user.id);
   if (!sessionId || !userId) {
     throw new WsAuthContractError(
-      "WS auth response is missing session id or user id"
+      "WS auth response is missing session id or user id",
     );
   }
 
@@ -92,15 +92,34 @@ function normalizeAuthResult(payload: unknown): AuthResult | null {
  * WsAuthContractError when the API's payload shape doesn't match — so callers
  * can tell "this session is invalid, stop" from "the API is restarting, retry".
  */
+/**
+ * Headers for the API session check. The client IP headers the edge proxy
+ * stamped on the upgrade request are forwarded so better-auth's rate limiter
+ * sees the real client: without them every WS connect in production shares
+ * better-auth's single "no trusted IP" bucket, and ~100 connects per minute
+ * across all users (a redeploy reconnect storm, or one hostile client) would
+ * push every further session check into 429 → 503 for everyone.
+ */
+export function sessionRequestHeaders(
+  cookieHeader: string,
+  upgradeHeaders?: Headers,
+): Record<string, string> {
+  const headers: Record<string, string> = { cookie: cookieHeader };
+  const forwardedFor = upgradeHeaders?.get("x-forwarded-for");
+  const realIp = upgradeHeaders?.get("x-real-ip");
+  if (forwardedFor) headers["x-forwarded-for"] = forwardedFor;
+  if (realIp) headers["x-real-ip"] = realIp;
+  return headers;
+}
+
 export async function validateSession(
-  cookieHeader: string
+  cookieHeader: string,
+  upgradeHeaders?: Headers,
 ): Promise<AuthResult | null> {
   try {
     const response = await tracedFetch(authUrl!, {
       method: "GET",
-      headers: {
-        cookie: cookieHeader,
-      },
+      headers: sessionRequestHeaders(cookieHeader, upgradeHeaders),
     });
 
     if (
@@ -112,7 +131,7 @@ export async function validateSession(
     }
     if (!response.ok) {
       throw new WsAuthUnavailableError(
-        `WS auth request failed with status ${response.status}`
+        `WS auth request failed with status ${response.status}`,
       );
     }
 
@@ -122,7 +141,7 @@ export async function validateSession(
     } catch (error) {
       if (error instanceof WsAuthContractError) {
         throw new WsAuthContractError(
-          `${error.message}; auth path=${new URL(authUrl!).pathname}; response keys=${describePayload(payload)}`
+          `${error.message}; auth path=${new URL(authUrl!).pathname}; response keys=${describePayload(payload)}`,
         );
       }
       throw error;
@@ -133,7 +152,7 @@ export async function validateSession(
     throw new WsAuthUnavailableError(
       error instanceof Error
         ? `WS auth request failed: ${error.message}`
-        : "WS auth request failed"
+        : "WS auth request failed",
     );
   }
 }

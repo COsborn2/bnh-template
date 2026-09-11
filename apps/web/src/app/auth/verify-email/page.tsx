@@ -1,9 +1,14 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useRef, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import {
+  Turnstile as TurnstileWidget,
+  type TurnstileInstance,
+} from "@marsidev/react-turnstile";
+import { getTurnstileTokenResetValue } from "@/lib/turnstile";
 import { Button } from "@/components/ui/button";
 
 export default function VerifyEmailPage() {
@@ -30,48 +35,137 @@ function VerifyEmailContent() {
   >(token ? "verifying" : "idle");
   const [message, setMessage] = useState("");
   const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState(() =>
+    getTurnstileTokenResetValue(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+  );
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const resendBlocked = !turnstileToken || turnstileError;
+  const resendNotice = turnstileError
+    ? "Verification failed. Please refresh and try again."
+    : resendMessage;
+  const resendNoticeSuccess = !turnstileError && resendSuccess;
 
-  const verifyToken = useCallback(async () => {
-    if (!token) return;
-    try {
-      const { error } = await authClient.verifyEmail({
-        query: { token },
-      });
-      if (error) {
-        setStatus("error");
-        setMessage(error.message || "Verification failed");
-      } else {
-        setStatus("success");
-      }
-    } catch {
-      setStatus("error");
-      setMessage("Verification failed");
-    }
-  }, [token]);
+  function resetTurnstileToken() {
+    setTurnstileToken(getTurnstileTokenResetValue(siteKey));
+  }
 
   useEffect(() => {
-    if (token) {
-      verifyToken();
-    }
-  }, [token, verifyToken]);
+    if (!token) return;
+    let cancelled = false;
+    authClient
+      .verifyEmail({ query: { token } })
+      .then(({ error }) => {
+        if (cancelled) return;
+        if (error) {
+          setStatus("error");
+          setMessage(error.message || "Verification failed");
+        } else {
+          setStatus("success");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStatus("error");
+        setMessage("Verification failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
-  async function handleResend() {
-    if (!email) return;
+  async function handleResend(e: FormEvent) {
+    e.preventDefault();
+    if (!email || resendBlocked) return;
     setResending(true);
+    setResendMessage("");
+    setResendSuccess(false);
     try {
       const { error } = await authClient.sendVerificationEmail({
         email,
+        fetchOptions: {
+          headers: { "x-captcha-response": turnstileToken },
+        },
       });
       if (error) {
-        setMessage(error.message || "Failed to resend");
+        setResendMessage(error.message || "Failed to resend");
       } else {
-        setMessage("Verification email sent!");
+        setResendMessage("Verification email sent!");
+        setResendSuccess(true);
       }
     } catch {
-      setMessage("Failed to resend");
+      setResendMessage("Failed to resend");
     } finally {
       setResending(false);
+      // Turnstile tokens are single-use: a fresh challenge is needed before
+      // the next attempt, whether or not this one succeeded.
+      turnstileRef.current?.reset();
+      resetTurnstileToken();
     }
+  }
+
+  function renderResendNotice() {
+    if (!resendNotice) return null;
+    return (
+      <div
+        className={
+          resendNoticeSuccess
+            ? "rounded-[var(--radius-md)] border border-border bg-bg-card p-3"
+            : "rounded-[var(--radius-md)] border border-accent-rose/20 bg-accent-rose/10 p-3"
+        }
+      >
+        <p
+          className={
+            resendNoticeSuccess
+              ? "text-sm text-text-muted"
+              : "text-sm text-accent-rose"
+          }
+        >
+          {resendNotice}
+        </p>
+      </div>
+    );
+  }
+
+  // Shown until a resend succeeds; the API requires a captcha token on
+  // /send-verification-email just like sign-in and sign-up.
+  function renderResendForm() {
+    return (
+      <form onSubmit={handleResend} className="flex flex-col gap-3">
+        {siteKey && (
+          <div className="flex justify-center">
+            <TurnstileWidget
+              ref={turnstileRef}
+              siteKey={siteKey}
+              onSuccess={(token) => {
+                setTurnstileError(false);
+                setTurnstileToken(token);
+              }}
+              onExpire={resetTurnstileToken}
+              onError={() => {
+                resetTurnstileToken();
+                setTurnstileError(true);
+              }}
+              options={{
+                theme: "dark",
+                size: "normal",
+                appearance: "interaction-only",
+              }}
+            />
+          </div>
+        )}
+        <Button
+          type="submit"
+          variant="secondary"
+          disabled={resending || resendBlocked}
+        >
+          {resending ? "Sending..." : "Resend verification email"}
+        </Button>
+      </form>
+    );
   }
 
   // Mode 1: Verifying a token
@@ -114,6 +208,8 @@ function VerifyEmailContent() {
         <p className="text-sm text-text-muted">
           {message || "This verification link is invalid or has expired."}
         </p>
+        {renderResendNotice()}
+        {email && !resendSuccess && renderResendForm()}
         <Link
           href="/auth/login"
           className="text-sm text-accent-purple hover:underline"
@@ -142,21 +238,9 @@ function VerifyEmailContent() {
         </p>
       </div>
 
-      {message && (
-        <div className="rounded-[var(--radius-md)] border border-border bg-bg-card p-3">
-          <p className="text-sm text-text-muted">{message}</p>
-        </div>
-      )}
+      {renderResendNotice()}
 
-      {email && (
-        <Button
-          variant="secondary"
-          onClick={handleResend}
-          disabled={resending}
-        >
-          {resending ? "Sending..." : "Resend verification email"}
-        </Button>
-      )}
+      {email && !resendSuccess && renderResendForm()}
 
       <Link
         href="/auth/login"

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { useDismissOnOutside } from "@/hooks/use-dismiss-on-outside";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEllipsis } from "@fortawesome/free-solid-svg-icons";
 
@@ -34,21 +35,12 @@ export function ActionsMenu({ items }: ActionsMenuProps) {
         left: rect.right - 160, // right-align, menu is min-w-[160px]
       });
     }
-
-    function handleMouseDown(e: MouseEvent) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleMouseDown);
-    return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [open]);
+
+  // Outside click or Escape closes; the trigger is excluded so it toggles.
+  useDismissOnOutside(menuRef, open, () => setOpen(false), {
+    anchorRef: buttonRef,
+  });
 
   return (
     <>

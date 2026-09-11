@@ -27,9 +27,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           className={cn(
             "h-10 w-full rounded-[var(--radius-md)] border border-border bg-bg-input px-3 text-sm text-text",
             "placeholder:text-text-faint",
-            "focus:border-border-focus focus:outline-none focus:ring-2 focus:ring-accent-purple/20",
+            // Mix accents toward transparent (opacity modifier), never into
+            // border tokens — oklch hue arcs turn purple-into-warm-brown red
+            // in light mode.
+            "focus:border-accent-purple/55 focus:outline-none focus:ring-2 focus:ring-accent-purple/20",
             "transition-colors duration-150",
-            error && "border-accent-rose focus:ring-accent-rose/20",
+            error &&
+              "border-accent-rose focus:border-accent-rose focus:ring-accent-rose/20",
             className
           )}
           {...props}

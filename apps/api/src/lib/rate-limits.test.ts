@@ -7,26 +7,24 @@ import {
   setSystemTime,
   test,
 } from "bun:test";
-import {
-  betterAuth,
-  type BetterAuthRateLimitStorage,
-  type RateLimit,
-} from "better-auth";
+import { betterAuth } from "better-auth";
 import Redis from "ioredis";
+import { redisStub } from "../test-support/mocks.js";
 
 // Switchable Redis mock: null (the default) exercises the in-memory fallback
 // paths; the redis-specific tests below temporarily point it at a real client
 // when REDIS_URL is available.
 let mockRedisClient: Redis | null = null;
 
-mock.module("./redis.js", () => ({
-  getRedisClient: () => mockRedisClient,
-}));
+mock.module("./redis.js", () =>
+  redisStub({ getRedisClient: () => mockRedisClient }),
+);
 
 import {
   RATE_LIMIT_POLICIES,
   RateLimitError,
   areRateLimitsBypassed,
+  betterAuthMemorySizeForTests,
   betterAuthRateLimitStorage,
   consumeEmailSendLimit,
   consumePublicEndpointLimit,
@@ -212,40 +210,27 @@ describe("rate limit consumption", () => {
   });
 });
 
-describe("Better Auth rate limit storage", () => {
-  test("stores Better Auth route limits in the memory fallback", async () => {
-    const value = {
-      key: "127.0.0.1|/sign-in/email",
-      count: 1,
-      lastRequest: Date.now(),
-    };
-
-    await betterAuthRateLimitStorage.set(value.key, value);
-
-    await expect(betterAuthRateLimitStorage.get(value.key)).resolves.toEqual(
-      value,
-    );
-  });
-
-  test("updates existing Better Auth route limit records", async () => {
-    const key = "127.0.0.1|/sign-up/email";
-    const first = { key, count: 1, lastRequest: Date.now() };
-    const second = { key, count: 2, lastRequest: first.lastRequest + 1000 };
-
-    await betterAuthRateLimitStorage.set(key, first);
-    await betterAuthRateLimitStorage.set(key, second, true);
-
-    await expect(betterAuthRateLimitStorage.get(key)).resolves.toEqual(second);
-  });
-});
-
 describe("Better Auth rate limit consume (memory fallback)", () => {
-  const consume = (key: string, rule: { window: number; max: number }) => {
-    if (!betterAuthRateLimitStorage.consume) {
-      throw new Error("betterAuthRateLimitStorage.consume is not implemented");
+  const consume = (key: string, rule: { window: number; max: number }) =>
+    betterAuthRateLimitStorage.consume(key, rule);
+
+  test("evicts expired windows once the map is large", async () => {
+    const rule = { window: 10, max: 3 };
+    try {
+      for (let i = 0; i < 10_000; i += 1) {
+        await consume(`203.0.113.${i}|/sign-in/email`, rule);
+      }
+      expect(betterAuthMemorySizeForTests()).toBe(10_000);
+
+      setSystemTime(new Date(Date.now() + 11_000));
+      await consume("fresh|/sign-in/email", rule);
+
+      // Every earlier window has elapsed; only the new key survives.
+      expect(betterAuthMemorySizeForTests()).toBe(1);
+    } finally {
+      setSystemTime();
     }
-    return betterAuthRateLimitStorage.consume(key, rule);
-  };
+  });
 
   test("allows up to max requests then blocks with a retryAfter", async () => {
     const rule = { window: 10, max: 3 };
@@ -313,14 +298,9 @@ describe("Better Auth rate limit consume (redis)", () => {
         const rule = { window: 60, max: 3 };
 
         const results = await Promise.all(
-          Array.from({ length: 10 }, () => {
-            if (!betterAuthRateLimitStorage.consume) {
-              throw new Error(
-                "betterAuthRateLimitStorage.consume is not implemented",
-              );
-            }
-            return betterAuthRateLimitStorage.consume(key, rule);
-          }),
+          Array.from({ length: 10 }, () =>
+            betterAuthRateLimitStorage.consume(key, rule),
+          ),
         );
 
         expect(results.filter((result) => result.allowed)).toHaveLength(3);
@@ -342,11 +322,7 @@ describe("Better Auth rate limit consume (redis)", () => {
 });
 
 describe("Better Auth route limiter with atomic custom storage", () => {
-  // NOTE: this test must run before the legacy get/set-only storage test
-  // below — better-auth logs its "best-effort" warning at most once per
-  // process, so the absence assertion is only meaningful while no legacy
-  // storage has been exercised yet.
-  test("returns 429 via consume without the legacy best-effort warning", async () => {
+  test("returns 429 via consume without a best-effort warning", async () => {
     const warnings: string[] = [];
     const auth = betterAuth({
       baseURL: "http://localhost:3000",
@@ -399,65 +375,5 @@ describe("Better Auth route limiter with atomic custom storage", () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("x-retry-after")).toBeTruthy();
     expect(warnings.filter((w) => w.includes("best-effort"))).toHaveLength(0);
-  });
-});
-
-describe("Better Auth route limiter", () => {
-  test("returns 429 responses when custom storage reaches the route limit", async () => {
-    const records = new Map<string, RateLimit>();
-    const storage: BetterAuthRateLimitStorage = {
-      get: async (key) => records.get(key),
-      set: async (key, value) => {
-        records.set(key, value);
-      },
-    };
-    const auth = betterAuth({
-      baseURL: "http://localhost:3000",
-      basePath: "/api/auth",
-      secret: "better-auth-secret-that-is-long-enough-for-test",
-      rateLimit: {
-        enabled: true,
-        customStorage: storage,
-      },
-      advanced: {
-        ipAddress: {
-          ipAddressHeaders: ["x-real-ip"],
-        },
-      },
-      emailVerification: {
-        sendVerificationEmail: async () => {},
-      },
-    });
-    const sendVerificationRequest = () =>
-      auth.handler(
-        new Request("http://localhost:3000/api/auth/send-verification-email", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            origin: "http://localhost:3000",
-            "x-real-ip": "127.0.0.1",
-          },
-          body: JSON.stringify({ email: "nobody@example.com" }),
-        }),
-      );
-
-    await expect(
-      sendVerificationRequest().then((res) => res.status),
-    ).resolves.toBe(200);
-    await expect(
-      sendVerificationRequest().then((res) => res.status),
-    ).resolves.toBe(200);
-    await expect(
-      sendVerificationRequest().then((res) => res.status),
-    ).resolves.toBe(200);
-
-    const blocked = await sendVerificationRequest();
-
-    expect(blocked.status).toBe(429);
-    expect(await blocked.json()).toEqual({
-      message: "Too many requests. Please try again later.",
-    });
-    expect(blocked.headers.get("x-retry-after")).toBeTruthy();
-    expect(records.get("127.0.0.1|/send-verification-email")?.count).toBe(3);
   });
 });

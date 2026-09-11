@@ -38,12 +38,19 @@
 		respond 404
 	}
 
-	# Serve robots.txt directly — don't wake upstream
+	# Serve robots.txt directly — don't wake upstream. Keeps crawlers out of
+	# the API, the admin area, the signed-in app and the token-bearing auth
+	# pages (login/register stay crawlable).
 	handle /robots.txt {
 		log_skip
 		header Content-Type text/plain
 		respond "User-agent: *
 Disallow: /api/
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /auth/reset-password
+Disallow: /auth/verify-email
 Allow: /
 "
 	}

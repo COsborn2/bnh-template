@@ -1,12 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Column<T> {
   key: string;
   header: string;
-  render: (row: T) => React.ReactNode;
+  render: (row: T) => ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -16,6 +17,10 @@ interface DataTableProps<T> {
   loadingRows?: number;
   emptyMessage?: string;
   onRowClick?: (row: T) => void;
+  /** Fired on pointer-enter / focus of a row — hook for prefetching the
+   *  route a row navigates to before the click (see handleRowIntent in
+   *  app/admin/users/page.tsx). */
+  onRowIntent?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -25,10 +30,13 @@ export function DataTable<T>({
   loadingRows = 5,
   emptyMessage = "No data found.",
   onRowClick,
+  onRowIntent,
 }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-[var(--radius-xl)] border border-border bg-bg-raised">
-      <table className="w-full">
+    // Scroll horizontally inside the card rather than clipping the right-hand
+    // columns on narrow viewports (the parent must allow shrinking: min-w-0).
+    <div className="overflow-x-auto rounded-[var(--radius-xl)] border border-border bg-bg-raised">
+      <table className="w-full min-w-[720px]">
         <thead>
           <tr className="border-b border-border">
             {columns.map((col) => (
@@ -67,6 +75,10 @@ export function DataTable<T>({
                 <tr
                   key={rowIndex}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onPointerEnter={
+                    onRowIntent ? () => onRowIntent(row) : undefined
+                  }
+                  onFocus={onRowIntent ? () => onRowIntent(row) : undefined}
                   className={cn(
                     "border-b border-border last:border-b-0",
                     onRowClick && "cursor-pointer hover:bg-bg-hover"

@@ -254,26 +254,29 @@ These should be set on each service’s own Variables tab.
 | `GOOGLE_CLIENT_SECRET` | `GOCSPX-...` | Optional | Leave unset to disable Google OAuth. If you set one Google var, set both. |
 | `LOG_LEVEL` | `info` | Optional | Winston level for the API's structured JSON logs (`error`, `warn`, `info`, `debug`). |
 | `DB_QUERY_LOGGING` | `false` | Optional | Set to `true` only when debugging SQL. |
+| `DB_POOL_SIZE` | `10` | Optional | postgres-js connections per API process (default 10). Must be a positive integer; the API fails fast at startup otherwise. |
 
 Do not set `RATE_LIMITS_DISABLED` in Railway. It is a local-development bypass and the API hard-ignores it when `NODE_ENV=production`, so setting it in production only causes confusion.
 
 Google OAuth note:
 
 - If you enable Google login, the callback lives under your public app origin.
+- Linking Google from Settings uses the same credentials; the section is always shown (like the sign-in button) and reports better-auth's error inline when Google is not configured. A failed link callback returns to `/settings?error=<code>`, so no redirect URI beyond `/api/auth/callback/google` is needed.
 - In this deployment shape, that means using your proxy domain, for example `https://myapp-production.up.railway.app/api/auth/callback/google`.
 
 ### `web`
 
 | Variable | Example value | Required | Notes |
 |---|---|---|---|
-| `API_INTERNAL_URL` | `http://${{ api.RAILWAY_PRIVATE_DOMAIN }}:3001` | Required | Next.js uses this server-side to rewrite `/api/*` to the private API service, and at request time for server-side data fetching (`src/lib/server-api.ts`). |
+| `API_INTERNAL_URL` | `http://${{ api.RAILWAY_PRIVATE_DOMAIN }}:3001` | Required | Next.js uses this server-side to rewrite `/api/*` to the private API service, at request time for server-side data fetching (`src/lib/server-api.ts`), and from `src/proxy.ts` to refresh better-auth's cookie cache (`GET /api/auth/get-session`) on SSR page loads. |
 | `WS_INTERNAL_URL` | `http://${{ ws.RAILWAY_PRIVATE_DOMAIN }}:3002` | Recommended | Next.js uses this server-side to rewrite `/ws` if requests hit the web service directly. |
 | `NEXT_PUBLIC_APP_NAME` | `${{ shared.APP_NAME }}` | Optional but recommended | If omitted, the UI falls back to `MyApp`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `0x4AAAAAAA...` | Required | Required for auth forms to work properly in production. |
+| `NEXT_PUBLIC_APP_URL` | `https://myapp-production.up.railway.app` | Optional but recommended | The canonical public origin (same value as `BETTER_AUTH_URL`). Sets `metadataBase` so canonical and Open Graph URLs are absolute. Unset or empty means no `metadataBase`. |
 
 Important build-time note:
 
-- `NEXT_PUBLIC_APP_NAME` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` are build-time values for the `web` Docker image. In the GHCR image flow they come from the GitHub repository variables of the same names (see Step 8), not from Railway.
+- `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `NEXT_PUBLIC_APP_URL` are build-time values for the `web` Docker image. In the GHCR image flow they come from the GitHub repository variables of the same names (see Step 8), not from Railway.
 - Changing them requires rebuilding the `web` image — use the `Redeploy All Services` workflow (see CI/CD Notes) after updating the GitHub repository variables.
 
 ### `ws`
@@ -375,6 +378,7 @@ Set these in `Settings -> Secrets and variables -> Actions -> Variables`:
 |---|---|---|
 | `NEXT_PUBLIC_APP_NAME` | Optional but recommended | Baked into the `web` image at build time. Falls back to `MyApp`. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Required for production auth | Baked into the `web` image at build time. Falls back to the non-functional placeholder `test` — auth forms in the deployed web image will not work until this variable is set and the image is rebuilt. |
+| `NEXT_PUBLIC_APP_URL` | Optional but recommended | The public proxy origin (same value as `BETTER_AUTH_URL`), baked into the `web` image at build time as `metadataBase`. Rebuild `web` via `Redeploy All Services` after changing it. |
 
 ### `DEPENDABOT_AUTOMERGE_PAT` (optional)
 
@@ -433,10 +437,10 @@ https://myapp-production.up.railway.app
 
 On pushes to `main`, `.github/workflows/ci.yml`:
 
-1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI
+1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI; in the template repo a `scaffold` job also runs `bin/create.ts` and fails on any leftover placeholder or lint error in the generated app
 2. detects affected services with `turbo query affected` and builds a dynamic Docker job matrix — unchanged services spawn no jobs at all (the `proxy` never appears in your app's matrix; its source lives only in the template repo, whose own CI publishes the proxy image)
 3. waits for the `production` GitHub environment before the Docker jobs run, so environment protection rules can gate publishing
-4. builds and pushes each affected image to GHCR under `sha-<commit>` and `latest` tags
+4. builds and pushes each affected image to GHCR under its immutable `sha-<commit>` tag, runs the built `web` image and requires `/health` to answer within 60 seconds — a green `docker build` says nothing about whether the image boots (next 16.3.1's standalone output built fine and crash-looped at startup) — and only then promotes the pushed image to `latest`. A failed smoke test fails the Docker job, blocks `railway-deploy`, and leaves `latest` on the previous image
 5. after all affected images are pushed, runs a single `railway-deploy` job (also gated on the `production` environment) that resolves every changed Railway service
 6. uses `scripts/railway-deploy-image.sh` to commit **one** environment patch (one `environmentPatchCommit` call) that updates the source image of every changed service at once, so back-to-back per-service patches can never race or get lost
 7. carries forward each service's current `deploy` block in that patch, preserving dashboard-managed replicas, regions, and restart policies
@@ -508,6 +512,7 @@ The starter `apps/cron/src/cleanup.ts` exits cleanly (non-zero when any cleanup 
 - Keep `migrate` as a dedicated service so schema changes stay explicit and easy to rerun.
 - Keep secrets in shared variables only when multiple services need them; otherwise prefer service-local variables.
 - Keep `RAILWAY_TOKEN` only as a `production` environment secret in GitHub, never repository-level.
+- The web app sends `Strict-Transport-Security: max-age=63072000; includeSubDomains` on every response (`apps/web/next.config.ts`). That is fine on `*.up.railway.app`, but on a custom apex domain it forces HTTPS on every subdomain; `preload` is intentionally omitted because it is a manual, effectively irreversible submission.
 
 ## Common Mistakes
 

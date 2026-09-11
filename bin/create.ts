@@ -120,18 +120,22 @@ const REPLACEMENT_FILES = [
   // to the new scope.
   "apps/api/src/__tests__/change-email.test.ts",
   "apps/api/src/lib/auth.ts",
+  "apps/api/src/lib/config.ts",
   "apps/api/src/lib/logger.ts",
   "apps/api/src/lib/redis.ts",
   "apps/api/src/middleware/trace-http.ts",
   "apps/api/src/instrumentation.ts",
   "apps/api/src/test-preload.ts",
   "apps/api/src/db/seed.ts",
+  "apps/api/src/routes/admin.ts",
   "apps/cron/src/cleanup-predicates.ts",
   "apps/cron/src/cleanup-predicates.test.ts",
   "apps/cron/src/retention.ts",
   "apps/web/src/app/layout.tsx",
   "apps/web/src/app/auth/layout.tsx",
+  "apps/web/src/components/auth/auth-shell.tsx",
   "apps/web/src/app/page.tsx",
+  "apps/web/src/app/settings/_components/errors.ts",
   "apps/web/src/app/manifest.json",
   "apps/web/src/components/chat/chat-page.tsx",
   "apps/web/src/hooks/use-websocket.ts",
@@ -158,12 +162,17 @@ const REPLACEMENT_FILES = [
   "DEPLOYMENT.md",
 
   // Other
+  "CLAUDE.md",
   "scripts/check-peer-deps.ts",
+  "scripts/integration-test.sh",
   "apps/api/src/__tests__/setup.ts",
   "apps/cron/src/cleanup.ts",
   "packages/shared/src/index.ts",
   "README.md",
 ];
+
+const TEMPLATE_ONLY_BLOCK =
+  /[ \t]*<!-- template-only -->[\s\S]*?<!-- \/template-only -->\r?\n?/g;
 
 interface Replacements {
   projectName: string;
@@ -181,6 +190,12 @@ async function replaceInFiles(dest: string, r: Replacements) {
     }
 
     let content = await readFile(filePath, "utf-8");
+
+    // Drop template-maintainer notes (CLAUDE.md wraps them in
+    // `<!-- template-only -->` … `<!-- /template-only -->`) before the
+    // placeholder rewrite, so the sentence naming the placeholders never
+    // reaches a scaffold half-substituted.
+    content = content.replace(TEMPLATE_ONLY_BLOCK, "");
 
     // Replace @app/ scope (before other replacements to avoid partial matches)
     content = content.replaceAll("@app/", `@${r.scope}/`);

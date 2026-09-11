@@ -3,14 +3,18 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { getTurnstileTokenResetValue } from "@/lib/turnstile";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { TurnstileSubmitButton } from "@/components/ui/turnstile-submit-button";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState(() =>
+    getTurnstileTokenResetValue(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+  );
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -20,6 +24,9 @@ export default function ForgotPasswordPage() {
       const { error: forgotError } = await authClient.requestPasswordReset({
         email,
         redirectTo: "/auth/reset-password",
+        fetchOptions: {
+          headers: { "x-captcha-response": turnstileToken },
+        },
       });
 
       if (forgotError) {
@@ -79,21 +86,18 @@ export default function ForgotPasswordPage() {
         autoComplete="email"
       />
 
-      {error && (
-        <div className="rounded-[var(--radius-md)] border border-accent-rose/20 bg-accent-rose/10 p-3">
-          <p className="text-sm text-accent-rose">{error}</p>
-        </div>
-      )}
-
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? "Sending..." : "Send reset link"}
-      </Button>
+      <TurnstileSubmitButton
+        isLoading={isLoading}
+        loadingText="Sending..."
+        token={turnstileToken}
+        onTokenChange={setTurnstileToken}
+        error={error}
+      >
+        Send reset link
+      </TurnstileSubmitButton>
 
       <p className="text-center text-sm text-text-muted">
-        <Link
-          href="/auth/login"
-          className="text-accent-purple hover:underline"
-        >
+        <Link href="/auth/login" className="text-accent-purple hover:underline">
           Back to sign in
         </Link>
       </p>

@@ -3,6 +3,8 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { auth } from "./lib/auth.js";
 import { wsRoutes } from "./routes/ws.js";
+import { accountRoutes } from "./routes/account.js";
+import { adminRoutes } from "./routes/admin.js";
 import { betterAuthCorsOrigin } from "./lib/config.js";
 import { logger, errorLogValue } from "./lib/logger.js";
 import { traceHttp } from "./middleware/trace-http.js";
@@ -47,12 +49,27 @@ app.get("/me", requireAuth, (c) => c.json({ user: c.var.auth }));
 //
 //   import { publicEndpointRateLimit } from "./middleware/ip-rate-limit.js";
 //   app.post("/feedback", publicEndpointRateLimit, (c) => { ... });
+//
+// For per-user (or per-resource) limits consumed inside a handler, wrap the
+// consumer in rateLimitedOr429 (lib/rate-limits.ts) so a RateLimitError
+// becomes the same 429:
+//
+//   await rateLimitedOr429(() => consumeSomethingLimit(c.var.auth.id));
 
 // WebSocket integration routes
 app.route("/ws", wsRoutes);
 
+// Signed-in account actions better-auth doesn't expose over HTTP itself
+// (POST /account/set-password for users without a credential password).
+app.route("/account", accountRoutes);
+
+// Admin-only user listing with composable filters. Distinct from
+// better-auth's own /auth/admin/* endpoints, which keep handling
+// ban/unban/impersonate/remove.
+app.route("/admin", adminRoutes);
+
 // better-auth handles all /auth/* routes
-app.on(["POST", "GET"], "/auth/**", (c) => {
+app.on(["POST", "GET"], "/auth/*", (c) => {
   return auth.handler(c.req.raw);
 });
 

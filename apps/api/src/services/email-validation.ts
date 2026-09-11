@@ -3,6 +3,14 @@ import blocklistText from "../data/disposable-email-blocklist.conf" with { type:
 
 let blocklist: Set<string> | null = null;
 
+/** Lowercased domain after the last "@", or null when there isn't one. */
+export function emailDomain(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at === -1) return null;
+  const domain = email.slice(at + 1).trim().toLowerCase();
+  return domain.length > 0 ? domain : null;
+}
+
 function ensureDisposableEmailBlocklist(): Set<string> {
   if (!blocklist) {
     blocklist = new Set(
@@ -23,7 +31,7 @@ export async function initDisposableEmailBlocklist(): Promise<void> {
 
 export function isDisposableEmail(email: string): boolean {
   const loadedBlocklist = ensureDisposableEmailBlocklist();
-  const domain = email.split("@")[1]?.toLowerCase();
+  const domain = emailDomain(email);
   if (!domain) return false;
   return loadedBlocklist.has(domain);
 }
@@ -68,7 +76,7 @@ export async function validateEmailDomain(email: string): Promise<EmailValidatio
   }
 
   // Check 2: MX records
-  const domain = email.split("@")[1]?.toLowerCase();
+  const domain = emailDomain(email);
   if (!domain) {
     return { valid: false, reason: "Invalid email address." };
   }

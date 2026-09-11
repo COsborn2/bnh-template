@@ -24,7 +24,7 @@ ws.use("*", async (c, next) => {
 // Called by the WS server when a client subscribes to a topic.
 // Returns 200 to allow, 403 to deny.
 ws.post("/authorize", async (c) => {
-  const { topic, userId } = await c.req.json<{
+  const { topic, userId: _userId } = await c.req.json<{
     topic: string;
     userId: string;
   }>();
