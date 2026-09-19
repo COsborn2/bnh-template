@@ -6,8 +6,6 @@
     "module": "esnext",
     "allowJs": true,
     "noEmit": true,
-    "declaration": false,
-    "declarationMap": false,
     "incremental": true,
     "types": ["bun", "node", "react", "react-dom"],
     "plugins": [{ "name": "next" }],
