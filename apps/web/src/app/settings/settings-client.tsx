@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import type { SessionUser } from "@/lib/session-user";
-import { Button } from "@/components/ui/button";
+import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import type { SettingsSectionId } from "./settings-user";
 import { PageLoading } from "@/components/ui/page-loading";
 import { ProfileSection } from "./_components/profile-section";
 import { EmailSection } from "./_components/email-section";
@@ -19,9 +20,10 @@ interface SettingsClientProps {
    *  Sections fall back to this only until `useSession` finishes its own
    *  load, then follow the live session (profile edits, email changes). */
   initialUser: SessionUser;
+  section: SettingsSectionId;
 }
 
-export function SettingsClient({ initialUser }: SettingsClientProps) {
+export function SettingsClient({ initialUser, section }: SettingsClientProps) {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   // One /list-accounts fetch shared by the password and connected-accounts
@@ -45,33 +47,17 @@ export function SettingsClient({ initialUser }: SettingsClientProps) {
   const user: SessionUser = session?.user ?? initialUser;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-16">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-text">Settings</h1>
-        <Link href="/dashboard">
-          <Button variant="secondary" size="sm">
-            Back to dashboard
-          </Button>
-        </Link>
-      </div>
-
-      <div className="space-y-6">
-        <ProfileSection user={user} />
-        <EmailSection user={user} />
-        <PasswordSection
-          hasPassword={accounts.hasPassword}
-          onPasswordSet={accounts.refetch}
-        />
-        <ConnectedAccountsSection
-          accounts={accounts.list}
-          loadError={accounts.error || undefined}
-          onAccountsChange={accounts.refetch}
-        />
-        <DeleteAccountSection
-          email={user.email}
-          hasPassword={accounts.hasPassword}
-        />
-      </div>
+    <div className="flex flex-col gap-4 animate-fade-up">
+      {section === "profile" && <><ProfileSection user={user} /><EmailSection user={user} /></>}
+      {section === "password" && <PasswordSection hasPassword={accounts.hasPassword} onPasswordSet={accounts.refetch} />}
+      {section === "connections" && <ConnectedAccountsSection accounts={accounts.list} loadError={accounts.error || undefined} onAccountsChange={accounts.refetch} />}
+      {section === "appearance" && (
+        <SettingsCard>
+          <SettingsCardHeader title="Appearance" subtitle="Choose a light, dark, or system theme." />
+          <ThemeToggle />
+        </SettingsCard>
+      )}
+      {section === "delete" && <DeleteAccountSection email={user.email} hasPassword={accounts.hasPassword} />}
     </div>
   );
 }

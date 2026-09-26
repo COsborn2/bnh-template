@@ -32,8 +32,9 @@ client, `packages/email` = React Email templates + sender, `packages/otel` = tra
 - Migrations: edit `packages/db/src/schema.ts`, then root `bun run db:generate` and
   `bun run db:migrate`. Never hand-write migration SQL; never rewrite a published
   migration (`apps/migrate/src/migrations.test.ts` pins them).
-- Icons: use `FaIcon` (`apps/web/src/components/ui/fa-icon.tsx`) in server components
-  and shared chrome; `FontAwesomeIcon` only inside `"use client"` modules (ESLint
-  enforces this).
+- Icons: use named imports from `lucide-react`; they render explicit SVGs in both
+  server and client components. Font Awesome imports are blocked by ESLint.
+- Shared presentation comes from `@cosborn2/ui` through the local UI adapters.
+  Import each component and its CSS entry; keep auth/state/network policy in the app.
 - `next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` and rewrites
   `apps/web/next-env.d.ts`; all three are committed on purpose.

@@ -403,3 +403,13 @@ If you have another Postgres running locally, prefer port `5433` for this repo. 
 ## License
 
 MIT
+
+### Shared UI package
+
+The web app uses `@cosborn2/ui` through small adapters in `apps/web/src/components/ui`. The settings page shares its server-rendered header, navigation, cards, typography, and theme tokens with RetroBoard. Auth, account security, app theme state, and notification timing remain local. Icons use named `lucide-react` imports. The library supplies plain per-component CSS and does not require Tailwind.
+
+Import only the component entry and its CSS (`@cosborn2/ui/button` and `@cosborn2/ui/button.css`, for example). The root layout loads the theme once. Keep static composition in Server Components; interactive dialogs and menus establish their own client boundaries.
+
+**Before merging this adoption:** publish `@cosborn2/ui@0.1.0-beta.0` publicly, then run `bun install` to resolve that real registry version and commit the resulting `bun.lock`. The dependency is currently unpublished; the existing lockfile intentionally remains unchanged. CI's frozen install should pass only after that registry resolution. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope.
+
+While `@cosborn2/ui` is below 1.0, review minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates so they cannot enter the grouped automatic merge path; patch releases remain eligible for normal checks and updates.

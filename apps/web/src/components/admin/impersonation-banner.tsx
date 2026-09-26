@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { authClient, useSession } from "@/lib/auth-client";
 
 export function ImpersonationBanner() {
@@ -74,21 +75,34 @@ export function ImpersonationBannerView({
   userName: string;
   onStop: () => void;
 }) {
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const banner = bannerRef.current;
+    if (!banner) return;
+    const update = () => document.documentElement.style.setProperty("--app-banner-offset", `${banner.getBoundingClientRect().height}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(banner);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--app-banner-offset");
+    };
+  }, []);
   return (
-    <div className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-accent-amber/40 bg-accent-amber px-4 py-2">
+    <div ref={bannerRef} className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-accent-amber/40 bg-accent-amber px-4 py-2">
       {/* min-w-0 + break-words: an unbroken user name must wrap — in flow it
           would otherwise widen the document and add a page-wide horizontal
           scrollbar. */}
       <span className="min-w-0 break-words text-sm font-medium text-black">
         You are impersonating {userName}
       </span>
-      <button
+      <Button variant="ghost" size="sm"
         type="button"
         onClick={onStop}
         className="shrink-0 rounded bg-black/20 px-3 py-1 text-sm font-medium text-black hover:bg-black/30"
       >
         Stop impersonating
-      </button>
+      </Button>
     </div>
   );
 }

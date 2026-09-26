@@ -4,6 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    # Before 1.0, UI minor releases may break callers. Adopt them explicitly;
+    # prerelease updates are also reviewed manually.
+    ignore:
+      - dependency-name: "@cosborn2/ui"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types:

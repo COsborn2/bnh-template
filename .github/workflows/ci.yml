@@ -282,6 +282,9 @@ jobs:
       - name: Run migrations
         run: bun run db:migrate
 
+      - name: Test scaffolded UI dependency
+        run: bun run test:scaffold
+
       - name: Test
         run: bun run test
 
