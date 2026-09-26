@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { toast, useToastStore } from "./toaster";
 
+beforeEach(() => useToastStore.setState({ toasts: [] }));
 afterEach(() => useToastStore.setState({ toasts: [] }));
 
 describe("application notification policy", () => {
