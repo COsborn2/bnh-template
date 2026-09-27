@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "retroboard",
+      "name": "create-bnh",
       "devDependencies": {
         "@types/bun": "^1.4.2",
         "eslint": "^9.39.4",
