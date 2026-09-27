@@ -403,3 +403,13 @@ If you have another Postgres running locally, prefer port `5433` for this repo. 
 ## License
 
 MIT
+
+### Shared UI package
+
+The web app uses `@cosborn2/ui` through small adapters in `apps/web/src/components/ui`. Its source, package validation, versioning, and publication live in the standalone [COsborn2/ui repository](https://github.com/COsborn2/ui). The settings page uses the library's server-rendered header, navigation, cards, typography, and theme tokens. Auth, account security, app theme state, and notification timing remain local. Icons use named `lucide-react` imports. The library supplies plain per-component CSS and does not require Tailwind.
+
+Import only the component entry and its CSS (`@cosborn2/ui/button` and `@cosborn2/ui/button.css`, for example). The root layout loads the theme once. Keep static composition in Server Components; interactive dialogs and menus establish their own client boundaries.
+
+Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
+
+Review `@cosborn2/ui` minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates and keeps UI updates out of dependency groups. Automatic approval and merging require a patch update between two stable versions with complete version metadata; beta updates and missing metadata require manual review.

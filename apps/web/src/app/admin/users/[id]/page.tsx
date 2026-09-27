@@ -11,15 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toaster";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faBan,
-  faCheck,
-  faUserSecret,
-  faTrash,
-  faRightFromBracket,
-  faShield,
-} from "@fortawesome/free-solid-svg-icons";
+import { Notice } from "@/components/ui/notice";
+import { Ban, Check, UserRoundCog, Trash2, LogOut, Shield } from "lucide-react";
 
 interface AdminUser {
   id: string;
@@ -484,10 +477,7 @@ export default function UserDetailPage() {
 
         {/* Banned notice */}
         {isBanned && (
-          <div className="mt-4 rounded-[var(--radius-md)] border border-accent-rose/20 bg-accent-rose/5 p-4 space-y-1">
-            <p className="text-sm font-medium text-accent-rose">
-              This user is banned
-            </p>
+          <Notice tone="danger" heading="This user is banned" className="mt-4">
             {user.banReason && (
               <p className="text-sm text-accent-rose/80">
                 <span className="font-medium">Reason:</span> {user.banReason}
@@ -499,7 +489,7 @@ export default function UserDetailPage() {
                 {new Date(user.banExpires).toLocaleString()}
               </p>
             )}
-          </div>
+          </Notice>
         )}
       </div>
 
@@ -530,7 +520,7 @@ export default function UserDetailPage() {
               <option value="user">User</option>
             </Select>
             <Button onClick={handleRoleUpdate} disabled={isSelf} size="sm">
-              <FontAwesomeIcon icon={faShield} className="mr-1.5 h-3.5 w-3.5" />
+              <Shield aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
               Update role
             </Button>
           </div>
@@ -544,10 +534,7 @@ export default function UserDetailPage() {
           {isBanned ? (
             <div>
               <Button onClick={handleUnban} disabled={isSelf}>
-                <FontAwesomeIcon
-                  icon={faCheck}
-                  className="mr-1.5 h-3.5 w-3.5"
-                />
+                <Check aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
                 Unban user
               </Button>
             </div>
@@ -573,7 +560,7 @@ export default function UserDetailPage() {
                 <option value="">Permanent</option>
               </Select>
               <Button variant="danger" onClick={handleBan} disabled={isSelf}>
-                <FontAwesomeIcon icon={faBan} className="mr-1.5 h-3.5 w-3.5" />
+                <Ban aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
                 Ban user
               </Button>
             </div>
@@ -587,10 +574,7 @@ export default function UserDetailPage() {
           </label>
           <div>
             <Button variant="secondary" onClick={() => setRevokeAllOpen(true)}>
-              <FontAwesomeIcon
-                icon={faRightFromBracket}
-                className="mr-1.5 h-3.5 w-3.5"
-              />
+              <LogOut aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
               Revoke all sessions
             </Button>
           </div>
@@ -607,10 +591,7 @@ export default function UserDetailPage() {
               onClick={() => setImpersonateOpen(true)}
               disabled={isSelf}
             >
-              <FontAwesomeIcon
-                icon={faUserSecret}
-                className="mr-1.5 h-3.5 w-3.5"
-              />
+              <UserRoundCog aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
               Impersonate user
             </Button>
           </div>
@@ -627,7 +608,7 @@ export default function UserDetailPage() {
               onClick={() => setDeleteOpen(true)}
               disabled={isSelf}
             >
-              <FontAwesomeIcon icon={faTrash} className="mr-1.5 h-3.5 w-3.5" />
+              <Trash2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
               Delete user
             </Button>
           </div>
@@ -642,6 +623,7 @@ export default function UserDetailPage() {
         <DataTable
           columns={sessionColumns}
           data={sessions}
+          getRowKey={(session) => session.token}
           loading={sessionsLoading}
           emptyMessage="No active sessions."
         />

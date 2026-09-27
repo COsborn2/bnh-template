@@ -1,5 +1,7 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
+
 import { Suspense, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -143,9 +145,7 @@ function ResetPasswordContent() {
       />
 
       {error && (
-        <div className="rounded-[var(--radius-md)] border border-accent-rose/20 bg-accent-rose/10 p-3">
-          <p className="text-sm text-accent-rose">{error}</p>
-        </div>
+        <Notice tone="danger" role="alert">{error}</Notice>
       )}
 
       <Button type="submit" disabled={isLoading}>

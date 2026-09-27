@@ -15,7 +15,8 @@
     "db:migrate": "turbo db:migrate --filter=@app/migrate",
     "db:seed": "turbo db:seed --filter=@app/api",
     "test": "turbo test",
-    "test:integration": "bash scripts/integration-test.sh"
+    "test:integration": "bash scripts/integration-test.sh",
+    "test:scaffold": "bun test bin/create.test.ts"
   },
   "overrides": {
     "eslint": "^9.39.4",

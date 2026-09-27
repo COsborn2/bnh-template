@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Notice } from "@/components/ui/notice";
 import { Button } from "@/components/ui/button";
 import {
   Turnstile as TurnstileWidget,
@@ -87,9 +88,7 @@ export function TurnstileSubmitButton({
         </div>
       )}
       {displayError && (
-        <div className="rounded-[var(--radius-md)] bg-accent-rose/10 border border-accent-rose/20 p-3">
-          <p className="text-sm text-accent-rose">{displayError}</p>
-        </div>
+        <Notice tone="danger" role="alert">{displayError}</Notice>
       )}
       <Button
         type="submit"

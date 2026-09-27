@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { SITE_URL, SITE_URL_IS_CONFIGURED } from "@/lib/site";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -9,21 +9,9 @@ import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 // Self-hosted via next/font: the files are downloaded at build time and served
 // from /_next/static, so no runtime request goes to Google Fonts. The CSS
 // variables are mapped onto --font-body / --font-display in globals.css.
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-  variable: "--font-dm-sans",
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
+const instrumentSerif = Instrument_Serif({ weight: "400", subsets: ["latin"], style: ["normal", "italic"], variable: "--font-instrument-serif", display: "swap" });
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "MyApp";
 const description = "A modern full-stack web application";
@@ -66,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${fraunces.variable}`}
+      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
       suppressHydrationWarning
     >
       <head>

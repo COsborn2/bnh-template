@@ -19,9 +19,9 @@ describe("DataTable", () => {
 
     // The wrapper scrolls horizontally instead of clipping the right-hand
     // columns on narrow viewports; the table keeps a usable minimum width.
-    expect(html).toMatch(/<div class="[^"]*overflow-x-auto[^"]*">/);
+    expect(html).toContain('class="bnh-data-table"');
     expect(html).not.toContain("overflow-hidden");
-    expect(html).toContain("min-w-[720px]");
+    expect(html).toContain('class="bnh-data-table__table"');
     expect(html).toContain("Ada");
   });
 

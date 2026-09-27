@@ -1,11 +1,13 @@
-@import "./colors.css";
 @import "tailwindcss";
+@import "@cosborn2/ui/theme.css";
+@import "./colors.css";
 
 @theme {
-  /* Font faces are self-hosted through next/font in app/layout.tsx, which
-     sets --font-fraunces / --font-dm-sans on <html>. */
-  --font-display: var(--font-fraunces), Georgia, serif;
-  --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -90,47 +92,11 @@ body {
   }
 }
 
-/* Modal overlay (components/ui/modal-overlay.tsx). Stacking contract for
-   fixed chrome, so nothing paints over what should be on top:
-     header / menus   30–50  (impersonation banner z-40, ActionsMenu z-50)
-     modals           100    (Modal default via --modal-z; nested hosts 200)
-     confirmations    300    (ConfirmDialog — may open from inside a modal)
-     toasts           400    (Toaster — global feedback clears everything)
-   The dim and blur live here rather than on the card so a loading placeholder
-   for a lazily loaded modal can't drift from the real thing. */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--modal-z, 100);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  overscroll-behavior: none;
-}
-@media (max-width: 600px) {
-  .modal-overlay {
-    padding: 10px;
-  }
-}
-
-/* Held on <html>/<body> by the refcounted lock in modal-overlay.tsx while any
-   overlay is mounted; the :has() form also covers an overlay rendered without
-   the hook. */
+/* Shared dialogs coordinate with app chrome through this reference-counted lock. */
 html.modal-open,
 body.modal-open {
   overflow: hidden;
   overscroll-behavior: none;
-}
-@supports selector(:has(*)) {
-  html:has(.modal-overlay),
-  body:has(.modal-overlay) {
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
 }
 
 /* Focus ring */
@@ -293,4 +259,43 @@ html {
   .page-loading-pulse {
     animation: loading-appear 0.3s ease-out 0.25s forwards;
   }
+}
+
+/* Font loading and application chrome offsets belong to this application. */
+:root {
+  --app-banner-offset: 0px;
+  --bnh-font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --bnh-font-display: var(--font-instrument-serif), Georgia, serif;
+  --bnh-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --bnh-modal-backdrop-blur: 3px;
+  --bnh-page-offset: var(--app-banner-offset);
+  --bnh-header-offset: var(--app-banner-offset);
+}
+
+/* Preserve the app's solid dialog treatment with the shared dialog behavior.
+   Component-layer overrides keep caller-provided body/width utilities working. */
+@layer components {
+  .bnh-modal-backdrop.bnh-modal-backdrop { background: rgba(0, 0, 0, 0.45); }
+  .bnh-modal.bnh-modal {
+    border-radius: 16px;
+    background: var(--color-bg-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  :root.light .bnh-modal {
+    box-shadow: 0 24px 64px rgba(30, 20, 60, 0.2), 0 6px 16px rgba(30, 20, 60, 0.1);
+  }
+  .bnh-modal .bnh-modal-actions { padding: 16px 52px 16px 22px; }
+  .bnh-modal .bnh-modal-heading { padding: 20px 52px 4px 24px; }
+  .bnh-modal .bnh-modal-title {
+    font-family: var(--bnh-font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.375;
+    letter-spacing: -0.01em;
+  }
+  .bnh-modal .bnh-modal-subtitle { margin-top: 4px; font-size: 12px; color: var(--color-text-muted); }
+  .bnh-modal .bnh-modal-body { padding: 16px 24px 22px; }
+  .bnh-modal .bnh-modal-footer { padding: 13px 22px; background: var(--color-bg-hover); }
 }
