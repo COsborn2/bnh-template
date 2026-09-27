@@ -410,6 +410,6 @@ The web app uses `@cosborn2/ui` through small adapters in `apps/web/src/componen
 
 Import only the component entry and its CSS (`@cosborn2/ui/button` and `@cosborn2/ui/button.css`, for example). The root layout loads the theme once. Keep static composition in Server Components; interactive dialogs and menus establish their own client boundaries.
 
-**Before merging this adoption:** publish `@cosborn2/ui@0.1.0-beta.0` publicly from `COsborn2/ui`, then run `bun install` to resolve that real registry version and commit the resulting `bun.lock`. The dependency is currently unpublished; the existing dependency resolutions intentionally remain unchanged. CI's frozen install should pass only after that registry resolution. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope.
+Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
 
 While `@cosborn2/ui` is below 1.0, review minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates so they cannot enter the grouped automatic merge path; patch releases remain eligible for normal checks and updates.
