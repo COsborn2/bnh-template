@@ -412,4 +412,4 @@ Import only the component entry and its CSS (`@cosborn2/ui/button` and `@cosborn
 
 Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
 
-While `@cosborn2/ui` is below 1.0, review minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates so they cannot enter the grouped automatic merge path; patch releases remain eligible for normal checks and updates.
+Review `@cosborn2/ui` minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates and keeps UI updates out of dependency groups. Automatic approval and merging require a patch update between two stable versions with complete version metadata; beta updates and missing metadata require manual review.

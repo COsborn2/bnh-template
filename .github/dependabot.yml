@@ -11,6 +11,8 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       minor-and-patch:
+        # Keep UI version metadata complete for the stable-patch auto-merge guard.
+        exclude-patterns: ["@cosborn2/ui"]
         update-types:
           - "minor"
           - "patch"
