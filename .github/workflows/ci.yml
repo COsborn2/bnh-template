@@ -195,6 +195,10 @@ jobs:
             echo "No bin/create.ts in this repository; nothing to scaffold."
           fi
 
+      - name: Test template generation
+        if: ${{ steps.scaffolder.outputs.present == 'true' }}
+        run: bun run test:scaffold
+
       - name: Scaffold an app and lint it
         if: ${{ steps.scaffolder.outputs.present == 'true' }}
         env:
@@ -238,9 +242,10 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    # Docker's official ECR mirror avoids shared-runner Docker Hub pull quotas.
     services:
       postgres:
-        image: postgres:17-alpine
+        image: public.ecr.aws/docker/library/postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -253,7 +258,7 @@ jobs:
           --health-timeout 3s
           --health-retries 5
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
         options: >-
@@ -281,9 +286,6 @@ jobs:
 
       - name: Run migrations
         run: bun run db:migrate
-
-      - name: Test scaffolded UI dependency
-        run: bun run test:scaffold
 
       - name: Test
         run: bun run test
