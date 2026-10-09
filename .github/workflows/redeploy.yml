@@ -11,8 +11,13 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository }}
 
 jobs:
+  security:
+    name: Dependency Security
+    uses: ./.github/workflows/dependency-security.yml
+
   redeploy:
     name: Rebuild and Redeploy Everything
+    needs: [security]
     runs-on: ubuntu-latest
     env:
       # Unique per run so the Railway patch always differs from the current

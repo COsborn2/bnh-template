@@ -46,36 +46,11 @@ export default [
     },
   },
   {
-    // The Font Awesome `svg-core` runtime injects the stylesheet that sizes
-    // `.svg-inline--fa` (`height: 1em`) into <head> at runtime, on the client.
-    // A server component never ships that runtime, so an icon it renders
-    // through `<FontAwesomeIcon>` has no sizing CSS in the SSR HTML and,
-    // unless a class sizes it explicitly, falls back to the browser's default
-    // 300x150 replaced-element size. The 404 page here happened to size its
-    // icon, so this rule is preventive: it stops the next server component
-    // from blowing out its layout.
-    //
-    // `<FontAwesomeIcon>` is therefore only safe in a module that declares
-    // "use client" (directly, and so lands in the client bundle). Everything
-    // else — server components, and shared helpers that may be pulled into one
-    // — must use `@/components/ui/fa-icon`, which draws the same glyph from the
-    // same icon definition but emits explicit width/height and skips the ~28KB
-    // runtime entirely.
     files: ["apps/web/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          // esquery's `:has()` silently matches nothing when given a leading
-          // `>` combinator, so this must stay a descendant selector. Matching
-          // `[directive]` rather than a bare string literal keeps it to a real
-          // directive prologue — a stray `const x = "use client"` can't spoof it.
-          selector:
-            'Program:not(:has(ExpressionStatement[directive="use client"])) > ImportDeclaration[source.value="@fortawesome/react-fontawesome"]',
-          message:
-            'Modules without a "use client" directive may be rendered as server components, where the Font Awesome svg-core runtime (and the CSS that sizes the icon) never reaches the browser. Use `FaIcon` from "@/components/ui/fa-icon" instead, or add "use client" if this module is genuinely client-only.',
-        },
-      ],
+      "no-restricted-imports": ["error", {
+        patterns: [{ group: ["@fortawesome/*"], message: "Use named imports from lucide-react; its SVG icons render on the server without a CSS runtime." }],
+      }],
     },
   },
 ];

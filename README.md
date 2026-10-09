@@ -400,6 +400,20 @@ If you do need to preserve local data, update `DATABASE_URL` in `.env` to use th
 
 If you have another Postgres running locally, prefer port `5433` for this repo. The included `docker-compose.yml` maps the container to `localhost:5433` to avoid conflicts with host-level Postgres installs.
 
+## Shared UI package
+
+The web app uses `@cosborn2/ui` through small adapters in `apps/web/src/components/ui`. Its source, React behavior tests, Storybook interaction and accessibility tests, versioning, and publication live in the standalone [COsborn2/ui repository](https://github.com/COsborn2/ui). The settings page uses the library's server-rendered header, navigation, cards, typography, and theme tokens. Auth, account security, app theme state, and notification timing remain local. Icons use named `lucide-react` imports. The library supplies plain per-component CSS and does not require Tailwind.
+
+Import only the component entry and its CSS (`@cosborn2/ui/button` and `@cosborn2/ui/button.css`, for example). The root layout loads the theme once. Keep static composition in Server Components; interactive dialogs and menus establish their own client boundaries.
+
+Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
+
+Review `@cosborn2/ui` minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates and keeps UI updates out of dependency groups. Automatic approval and merging require a patch update between two stable versions with complete version metadata; beta updates and missing metadata require manual review.
+
+`bun run audit:dependencies` checks the complete lockfile for high and critical advisories. CI and manual redeploys require this audit to pass; a daily workflow also checks for newly disclosed vulnerabilities. The consumer app keeps its functional tests and production build checks. Shared-component behavior and accessibility are tested in the UI repository.
+
+The root `next` override keeps the email preview's nested Next.js dependency on the patched application version; keep that override aligned with application upgrades until the preview's own dependency is patched.
+
 ## License
 
 MIT
