@@ -1,0 +1,26 @@
+name: Dependency Security
+
+on:
+  workflow_call:
+  schedule:
+    - cron: '37 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      # Check the full lockfile without installing or executing dependencies.
+      - name: Audit all dependencies for high and critical vulnerabilities
+        run: bun audit --audit-level=high
