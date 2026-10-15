@@ -22,7 +22,7 @@
     "postcss": "^8.5.26"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.4.0",
     "eslint-plugin-react-hooks": "^7.1.1",
