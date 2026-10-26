@@ -23,11 +23,11 @@
     "postcss": "^8.5.26"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.3",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "^16.4.2",
+    "@types/bun": "^1.4.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "turbo": "^2.11.9",
+    "turbo": "^2.11.10",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0"
   }
