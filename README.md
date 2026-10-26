@@ -410,7 +410,7 @@ The app restyles the shared components rather than forking them, so it doubles a
 - `apps/web/src/app/theme.css` sets the `--bnh-*` tokens for the light and dark palettes, plus border width, radii, hard offset shadows, and no backdrop blur. Its `@theme inline` block maps the same tokens onto Tailwind utilities (`bg-bg-raised`, `shadow-raised`, `border` widths), so app markup and shared components stay in step.
 - `apps/web/src/app/ui-overrides.css` restyles individual components through their documented `bnh-*` class names. It lives in an `overrides` cascade layer declared in `globals.css` (`theme, base, components, overrides, utilities`), which beats the package's `components` layer without extra specificity while per-instance Tailwind classes still win.
 
-Change the look by editing those two files. The proxy's cold-start loading page (`infra/proxy`, template repo only) keeps its own palette and is not derived from the app theme.
+Change the look by editing those two files.
 
 Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
 

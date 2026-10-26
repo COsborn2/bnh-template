@@ -41,7 +41,6 @@ by environment variables.
 - The web app's look lives in `apps/web/src/app/theme.css` (`--bnh-*` tokens + Tailwind
   mapping) and `ui-overrides.css` (component restyling in the `overrides` layer). Restyle
   shared components there by class name instead of wrapping or forking them; prefer the
-  shared `Surface` adapter over hand-rolled card markup. The proxy loading page has its
-  own palette; nothing syncs the two.
+  shared `Surface` adapter over hand-rolled card markup.
 - `next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` and rewrites
   `apps/web/next-env.d.ts`; all three are committed on purpose.

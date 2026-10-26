@@ -27,17 +27,7 @@ The global `servers` block trusts Railway's private/CGNAT hop (`trusted_proxies 
 
 ## Theme Colors
 
-The loading page uses colors from `packages/theme/colors.json` (the shared source of truth). To update colors:
-
-```bash
-# Edit the source of truth
-vim packages/theme/colors.json
-
-# Regenerate colors.css and loading.html
-bun scripts/sync-theme.ts
-```
-
-This updates both `apps/web/src/app/colors.css` and `infra/proxy/loading.html`.
+The loading page's colors are declared inline at the top of `loading.html`. Edit that file directly.
 
 ## Local Testing
 
@@ -75,5 +65,4 @@ curl -s http://localhost:8080/api/test
 |------|---------|
 | `Caddyfile` | Caddy config with routing and `handle_errors` |
 | `Dockerfile` | Container image (caddy:2-alpine + config + loading page) |
-| `loading.template.html` | Loading page template with `/* THEME_VARS */` placeholder |
-| `loading.html` | Generated loading page (do not edit directly) |
+| `loading.html` | Cold-start loading page served while upstreams are unreachable |

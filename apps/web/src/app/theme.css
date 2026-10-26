@@ -1,8 +1,7 @@
 /* The app's theme: a neobrutalist palette with ink borders and hard offset
    shadows. Shared components read the --bnh-* tokens declared here; Tailwind
    utilities map onto the same tokens below, so markup and @cosborn2/ui draw
-   from one source. This file is hand-maintained and belongs to the web app
-   alone (the proxy's loading page keeps its own palette).
+   from one source.
 
    Selectors mirror the package's theme selectors so scoped regions and
    portaled dialogs pick up the same values. The root layout's theme script
