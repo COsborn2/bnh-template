@@ -1,5 +1,8 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
+import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
+
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -61,10 +64,8 @@ export function DeleteAccountSection({
 
   return (
     <>
-      <div className="rounded-[var(--radius-xl)] border border-accent-rose/20 bg-bg-raised p-8">
-        <h2 className="font-display text-xl font-semibold text-accent-rose">
-          {emailSent ? "Check your email" : "Delete account"}
-        </h2>
+      <SettingsCard danger>
+        <SettingsCardHeader danger title={emailSent ? "Check your email" : "Delete account"} />
 
         {emailSent ? (
           <div className="mt-1 space-y-3 text-sm text-text-muted">
@@ -94,7 +95,7 @@ export function DeleteAccountSection({
               we&apos;ll email you a confirmation link before anything is
               deleted.
             </p>
-            {error && <p className="mt-3 text-sm text-accent-rose">{error}</p>}
+            {error && <Notice tone="danger" role="alert" className="mt-3">{error}</Notice>}
             <div className="mt-6">
               <Button
                 variant="danger"
@@ -106,7 +107,7 @@ export function DeleteAccountSection({
             </div>
           </>
         )}
-      </div>
+      </SettingsCard>
 
       <ConfirmDialog
         open={showConfirm}

@@ -1,5 +1,7 @@
 "use client";
 
+import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
+
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -73,11 +75,8 @@ export function ProfileSection({ user }: ProfileSectionProps) {
   }
 
   return (
-    <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-8">
-      <h2 className="font-display text-xl font-semibold text-text">Profile</h2>
-      <p className="mt-1 text-sm text-text-muted">
-        Update your personal information.
-      </p>
+    <SettingsCard>
+      <SettingsCardHeader title="Profile" subtitle="Update your personal information." />
 
       <form onSubmit={handleProfileSubmit} className="mt-6 space-y-4">
         <Input
@@ -108,6 +107,6 @@ export function ProfileSection({ user }: ProfileSectionProps) {
           </Button>
         </div>
       </form>
-    </div>
+    </SettingsCard>
   );
 }

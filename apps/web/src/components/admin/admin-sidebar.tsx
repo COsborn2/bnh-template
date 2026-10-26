@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUsers, faGear, faArrowLeft, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { Users, Settings, ArrowLeft, type LucideIcon } from "lucide-react";
 
-const navIcons: Record<string, IconDefinition> = {
-  Users: faUsers,
-  "App Admin": faGear,
+const navIcons: Record<string, LucideIcon> = {
+  Users: Users,
+  "App Admin": Settings,
 };
 
 interface NavItem {
@@ -29,6 +28,7 @@ export function AdminSidebar({ items }: AdminSidebarProps) {
       <nav className="flex flex-col gap-1">
         {items.map((item) => {
           const isActive = pathname.startsWith(item.href);
+          const Icon = navIcons[item.label];
           return (
             <Link
               key={item.href}
@@ -40,8 +40,8 @@ export function AdminSidebar({ items }: AdminSidebarProps) {
                   : "text-text-muted hover:text-text hover:bg-bg-hover"
               )}
             >
-              {navIcons[item.label] && (
-                <FontAwesomeIcon icon={navIcons[item.label]} className="h-4 w-4" />
+              {Icon && (
+                <Icon aria-hidden="true" className="h-4 w-4" />
               )}
               {item.label}
             </Link>
@@ -52,7 +52,7 @@ export function AdminSidebar({ items }: AdminSidebarProps) {
         href="/dashboard"
         className="mt-auto flex items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm transition-colors text-text-muted hover:text-text hover:bg-bg-hover"
       >
-        <FontAwesomeIcon icon={faArrowLeft} className="h-3.5 w-3.5" />
+        <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
         Back to dashboard
       </Link>
     </aside>

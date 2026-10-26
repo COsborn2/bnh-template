@@ -20,6 +20,27 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+      - name: Check shared UI release policy
+        id: ui-policy
+        env:
+          UPDATED_DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          set -euo pipefail
+          allowed="$(jq -r '
+            if type != "array" then error("Expected dependency metadata array")
+            elif length == 0 then error("Missing dependency metadata")
+            elif any(.[]; (.dependencyName | type) != "string") then error("Missing dependency name")
+            else all(.[] | select(.dependencyName == "@cosborn2/ui");
+              .updateType == "version-update:semver-patch"
+              and ((.prevVersion // "") | test("^[0-9]+[.][0-9]+[.][0-9]+$"))
+              and ((.newVersion // "") | test("^[0-9]+[.][0-9]+[.][0-9]+$")))
+            end
+          ' <<< "$UPDATED_DEPENDENCIES")"
+          echo "allow_automerge=$allowed" >> "$GITHUB_OUTPUT"
+          if [ "$allowed" != "true" ]; then
+            echo "Shared UI beta, breaking, or unclassified updates require manual review."
+          fi
+
       - name: Verify Dependabot-only changes
         run: |
           non_dependabot_commits="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits" \
@@ -42,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Approve PR
-        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        if: steps.ui-policy.outputs.allow_automerge == 'true' && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch')
         # Approve with a PAT, not GITHUB_TOKEN: github-actions[bot] approvals
         # fail when "Allow GitHub Actions to create and approve pull requests"
         # is disabled and may not satisfy branch protection review requirements.
@@ -52,7 +73,7 @@ jobs:
           GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_PAT }}
 
       - name: Auto-merge minor and patch updates
-        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        if: steps.ui-policy.outputs.allow_automerge == 'true' && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch')
         # Keep the squash body controlled so upstream release notes cannot
         # inject commit directives like [skip ci] into main.
         #

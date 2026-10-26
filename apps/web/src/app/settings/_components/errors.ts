@@ -44,7 +44,7 @@ export function describeUnlinkError(error: {
 /**
  * Copy for the `?error=<code>` better-auth appends when a link-social
  * callback fails and redirects back here (handleConnect passes
- * errorCallbackURL "/settings"). Codes come from better-auth's OAuth
+ * errorCallbackURL "/settings?section=connections"). Codes come from better-auth's OAuth
  * callback route.
  */
 export function describeLinkError(code: string | null): string {

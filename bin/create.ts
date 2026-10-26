@@ -70,7 +70,7 @@ const EXCLUDE_ANYWHERE_DIRS = new Set([
 ]);
 const EXCLUDE_FILES = new Set(["bun.lock", ".env.local"]);
 
-async function copyTemplate(templateDir: string, dest: string) {
+export async function copyTemplate(templateDir: string, dest: string) {
   await cp(templateDir, dest, {
     recursive: true,
     filter: (src) => {
@@ -181,7 +181,7 @@ interface Replacements {
   scope: string;
 }
 
-async function replaceInFiles(dest: string, r: Replacements) {
+export async function replaceInFiles(dest: string, r: Replacements) {
   for (const file of REPLACEMENT_FILES) {
     const filePath = join(dest, file);
 
@@ -206,6 +206,7 @@ async function replaceInFiles(dest: string, r: Replacements) {
       const pkg = JSON.parse(content);
       pkg.name = r.projectName;
       delete pkg.bin;
+      delete pkg.scripts?.["test:scaffold"];
       content = JSON.stringify(pkg, null, 2) + "\n";
     }
 
@@ -283,7 +284,9 @@ async function main() {
   printSummary(projectName);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

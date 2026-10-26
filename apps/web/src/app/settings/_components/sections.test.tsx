@@ -54,7 +54,7 @@ describe("ConnectedAccountsSection", () => {
     const html = rts(
       <ConnectedAccountsSection accounts={null} onAccountsChange={noop} />,
     );
-    expect(html).toContain("animate-pulse-soft");
+    expect(html).toContain("bnh-skeleton");
     expect(html).not.toContain(">Connect<");
   });
 
@@ -67,7 +67,7 @@ describe("ConnectedAccountsSection", () => {
       />,
     );
     expect(html).toContain("Sign-in methods are unavailable");
-    expect(html).not.toContain("animate-pulse-soft");
+    expect(html).not.toContain("bnh-skeleton");
   });
 
   test("offers Connect when Google is not linked", () => {

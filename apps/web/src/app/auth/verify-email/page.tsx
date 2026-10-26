@@ -9,6 +9,7 @@ import {
   type TurnstileInstance,
 } from "@marsidev/react-turnstile";
 import { getTurnstileTokenResetValue } from "@/lib/turnstile";
+import { Notice } from "@/components/ui/notice";
 import { Button } from "@/components/ui/button";
 
 export default function VerifyEmailPage() {
@@ -110,23 +111,9 @@ function VerifyEmailContent() {
   function renderResendNotice() {
     if (!resendNotice) return null;
     return (
-      <div
-        className={
-          resendNoticeSuccess
-            ? "rounded-[var(--radius-md)] border border-border bg-bg-card p-3"
-            : "rounded-[var(--radius-md)] border border-accent-rose/20 bg-accent-rose/10 p-3"
-        }
-      >
-        <p
-          className={
-            resendNoticeSuccess
-              ? "text-sm text-text-muted"
-              : "text-sm text-accent-rose"
-          }
-        >
-          {resendNotice}
-        </p>
-      </div>
+      <Notice tone={resendNoticeSuccess ? "success" : "danger"} role={resendNoticeSuccess ? "status" : "alert"}>
+        {resendNotice}
+      </Notice>
     );
   }
 

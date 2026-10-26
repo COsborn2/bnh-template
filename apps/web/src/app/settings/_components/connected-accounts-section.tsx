@@ -1,5 +1,8 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
+import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
+
 import { useState, type ReactNode } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -36,7 +39,7 @@ export function ConnectedAccountsSection({
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  // A failed link-social callback lands back on /settings?error=<code>
+  // A failed link-social callback lands back on /settings?section=connections&error=<code>
   // (errorCallbackURL below). Surface it in this card's error slot.
   const linkError = useConsumedErrorParam(describeLinkError);
 
@@ -44,7 +47,7 @@ export function ConnectedAccountsSection({
     return (
       <Card>
         {loadError ? (
-          <p className="mt-6 text-sm text-accent-rose">{loadError}</p>
+          <Notice tone="danger" role="alert" className="mt-6">{loadError}</Notice>
         ) : (
           <div className="mt-6 flex items-center gap-4">
             <Skeleton className="h-9 w-9" />
@@ -73,11 +76,11 @@ export function ConnectedAccountsSection({
     try {
       const { error: linkError } = await authClient.linkSocial({
         provider: "google",
-        callbackURL: "/settings",
+        callbackURL: "/settings?section=connections",
         // Without this, a failed link callback falls back to better-auth's
         // global error page (onAPIError.errorURL, or its built-in /error) —
         // telling a signed-in user their sign-in failed. Land back here.
-        errorCallbackURL: "/settings",
+        errorCallbackURL: "/settings?section=connections",
       });
       // On success the client follows the returned URL to Google itself.
       if (linkError) {
@@ -187,7 +190,7 @@ export function ConnectedAccountsSection({
       </div>
 
       {(error || linkError) && (
-        <p className="mt-4 text-sm text-accent-rose">{error || linkError}</p>
+        <Notice tone="danger" role="alert" className="mt-4">{error || linkError}</Notice>
       )}
     </Card>
   );
@@ -195,15 +198,10 @@ export function ConnectedAccountsSection({
 
 function Card({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-8">
-      <h2 className="font-display text-xl font-semibold text-text">
-        Connected accounts
-      </h2>
-      <p className="mt-1 text-sm text-text-muted">
-        Other ways to sign in to your account.
-      </p>
+    <SettingsCard>
+      <SettingsCardHeader title="Connected accounts" subtitle="Other ways to sign in to your account." />
       {children}
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -223,7 +221,7 @@ function AccountRow({
   action: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-4 border-b border-border py-4 first:pt-0 last:border-0 last:pb-0">
+    <div className="flex flex-wrap items-center gap-4 border-b border-border py-4 first:pt-0 last:border-0 last:pb-0">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-bg-input">
         {logo}
       </div>

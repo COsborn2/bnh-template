@@ -1,5 +1,8 @@
 "use client";
 
+import { Notice } from "@/components/ui/notice";
+import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
+
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -51,16 +54,13 @@ export function EmailSection({ user }: EmailSectionProps) {
   }
 
   return (
-    <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-8">
-      <h2 className="font-display text-xl font-semibold text-text">Email</h2>
-      <p className="mt-1 text-sm text-text-muted">
-        The address you sign in with and where we reach you.
-      </p>
+    <SettingsCard>
+      <SettingsCardHeader title="Email" subtitle="The address you sign in with and where we reach you." />
 
       {success && (
-        <p className="mt-4 rounded-[var(--radius-md)] border border-accent-green/20 bg-accent-green/10 px-3 py-2 text-sm text-accent-green">
+        <Notice tone="success" role="status" className="mt-4">
           {success}
-        </p>
+        </Notice>
       )}
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -123,6 +123,6 @@ export function EmailSection({ user }: EmailSectionProps) {
           </div>
         </form>
       )}
-    </div>
+    </SettingsCard>
   );
 }

@@ -352,6 +352,7 @@ export default function AdminUsersPage() {
       <DataTable
         columns={columns}
         data={users}
+        getRowKey={(user) => user.id}
         loading={loading}
         onRowIntent={handleRowIntent}
       />

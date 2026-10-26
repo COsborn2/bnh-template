@@ -1,5 +1,7 @@
 "use client";
 
+import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
+
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api";
@@ -90,15 +92,10 @@ export function PasswordSection({
   }
 
   return (
-    <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-8">
-      <h2 className="font-display text-xl font-semibold text-text">
-        {needsPassword ? "Set a password" : "Change password"}
-      </h2>
-      <p className="mt-1 text-sm text-text-muted">
-        {needsPassword
+    <SettingsCard>
+      <SettingsCardHeader title={needsPassword ? "Set a password" : "Change password"} subtitle={needsPassword
           ? "Your account has no password yet. Set one to also sign in with your email address."
-          : "Update your password. This will revoke all other sessions."}
-      </p>
+          : "Update your password. This will revoke all other sessions."} />
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         {!needsPassword && (
@@ -140,6 +137,6 @@ export function PasswordSection({
           </Button>
         </div>
       </form>
-    </div>
+    </SettingsCard>
   );
 }
