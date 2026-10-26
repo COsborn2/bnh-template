@@ -107,7 +107,6 @@ const REPLACEMENT_FILES = [
   "packages/email/package.json",
   "packages/otel/package.json",
   "packages/shared/package.json",
-  "packages/theme/package.json",
   ".env.example",
   "apps/web/.env.example",
   "apps/web/.env.local.example",

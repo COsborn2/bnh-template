@@ -160,7 +160,7 @@ export function ConnectedAccountsSection({
           <AccountRow
             key={account.id}
             logo={
-              <span className="text-sm font-semibold uppercase text-text-muted">
+              <span className="text-sm font-bold uppercase text-on-fill">
                 {account.providerId.charAt(0)}
               </span>
             }
@@ -222,7 +222,7 @@ function AccountRow({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-4 border-b border-border py-4 first:pt-0 last:border-0 last:pb-0">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-bg-input">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-border bg-white shadow-control">
         {logo}
       </div>
       <div className="min-w-0 flex-1">
@@ -232,7 +232,7 @@ function AccountRow({
           </span>
           {connected && <StatusPill>Connected</StatusPill>}
         </div>
-        <p className="mt-0.5 text-xs text-text-muted">{description}</p>
+        <p className="mt-0.5 text-sm text-text-muted">{description}</p>
         {hint && <p className="mt-1 text-xs text-text-faint">{hint}</p>}
       </div>
       {action}

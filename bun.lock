@@ -174,10 +174,6 @@
         "typescript": "^6.0.3",
       },
     },
-    "packages/theme": {
-      "name": "@app/theme",
-      "version": "0.0.1",
-    },
   },
   "overrides": {
     "eslint": "^9.39.4",
@@ -199,8 +195,6 @@
     "@app/otel": ["@app/otel@workspace:packages/otel"],
 
     "@app/shared": ["@app/shared@workspace:packages/shared"],
-
-    "@app/theme": ["@app/theme@workspace:packages/theme"],
 
     "@app/web": ["@app/web@workspace:apps/web"],
 

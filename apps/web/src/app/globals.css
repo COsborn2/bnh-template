@@ -1,19 +1,11 @@
+/* Layer order: shared component styles live in `components`; this app's
+   restyling of them lives in `overrides`, which beats them without extra
+   specificity while per-instance Tailwind utilities still win. */
+@layer theme, base, components, overrides, utilities;
 @import "tailwindcss";
 @import "@cosborn2/ui/theme.css";
-@import "./colors.css";
-
-@theme {
-  --font-display: var(--font-instrument-serif), Georgia, serif;
-  --font-body: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-}
+@import "./theme.css";
+@import "./ui-overrides.css";
 
 * {
   box-sizing: border-box;
@@ -35,35 +27,46 @@
 
 body {
   font-family: var(--font-body);
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  /* Dot grid paper. */
+  background-image: radial-gradient(var(--app-dot) 1.2px, transparent 1.6px);
+  background-size: 22px 22px;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: var(--color-accent-purple);
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
-/* Subtle noise texture on backgrounds */
-.noise-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  background-size: 256px 256px;
-  pointer-events: none;
-  z-index: -1;
+/* Inline text links: ink text on a thick accent underline that fills in on hover. */
+@utility link-underline {
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-accent-purple);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
+  &:hover {
+    background: var(--color-primary);
+    color: var(--color-primary-text);
+    text-decoration-color: currentColor;
+  }
 }
 
-/* Card hover lift */
+/* Hard-shadow hover lift for clickable cards */
 .card-lift {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 .card-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--color-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-lift:hover {
+    transform: none;
+  }
 }
 
 /* Browsers paint their own error styling the moment a `required` field goes
@@ -101,14 +104,14 @@ body.modal-open {
 
 /* Focus ring */
 .focus-ring:focus-visible {
-  outline: 2px solid var(--color-accent-purple);
-  outline-offset: 2px;
+  outline: var(--bnh-focus-ring-width) solid var(--bnh-focus-ring-color);
+  outline-offset: var(--bnh-focus-ring-offset);
 }
 
 html {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: var(--color-text-faint) transparent;
 }
 
 /* Stagger animation */
@@ -227,7 +230,7 @@ html {
    Page loading (PageLoading in components/ui/page-loading.tsx)
    Invisible for the first 250ms, then fades in — the CSS
    equivalent of a deferred-loading hook. Fast loads never see
-   it; slow ones get a calm breathing dot, not a skeleton.
+   it; slow ones get a block that hops in place, not a skeleton.
    ============================================================ */
 .page-loading {
   position: absolute;
@@ -238,64 +241,26 @@ html {
   pointer-events: none;
 }
 .page-loading-pulse {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--color-accent-purple);
-  box-shadow: 0 0 28px var(--color-accent-purple);
+  width: 28px;
+  height: 28px;
+  border: var(--bnh-border-width) solid var(--color-ink);
+  border-radius: var(--bnh-radius-sm);
+  background: var(--color-primary);
+  box-shadow: var(--bnh-control-shadow);
   opacity: 0;
   animation:
-    loading-appear 0.3s ease-out 0.25s forwards,
-    loading-breathe 1.6s ease-in-out 0.55s infinite;
+    loading-appear 0.2s ease-out 0.25s forwards,
+    loading-hop 0.9s cubic-bezier(0.5, 0, 0.5, 1) 0.45s infinite;
 }
 @keyframes loading-appear {
-  to { opacity: 0.45; }
+  to { opacity: 1; }
 }
-@keyframes loading-breathe {
-  0%, 100% { opacity: 0.45; transform: scale(1); }
-  50% { opacity: 0.2; transform: scale(0.82); }
+@keyframes loading-hop {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); box-shadow: 3px 3px 0 var(--color-ink); }
+  50% { transform: translate(-2px, -10px) rotate(-8deg); box-shadow: 6px 13px 0 var(--color-ink); }
 }
 @media (prefers-reduced-motion: reduce) {
   .page-loading-pulse {
-    animation: loading-appear 0.3s ease-out 0.25s forwards;
+    animation: loading-appear 0.2s ease-out 0.25s forwards;
   }
-}
-
-/* Font loading and application chrome offsets belong to this application. */
-:root {
-  --app-banner-offset: 0px;
-  --bnh-font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --bnh-font-display: var(--font-instrument-serif), Georgia, serif;
-  --bnh-font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --bnh-modal-backdrop-blur: 3px;
-  --bnh-page-offset: var(--app-banner-offset);
-  --bnh-header-offset: var(--app-banner-offset);
-}
-
-/* Preserve the app's solid dialog treatment with the shared dialog behavior.
-   Component-layer overrides keep caller-provided body/width utilities working. */
-@layer components {
-  .bnh-modal-backdrop.bnh-modal-backdrop { background: rgba(0, 0, 0, 0.45); }
-  .bnh-modal.bnh-modal {
-    border-radius: 16px;
-    background: var(--color-bg-raised);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
-  :root.light .bnh-modal {
-    box-shadow: 0 24px 64px rgba(30, 20, 60, 0.2), 0 6px 16px rgba(30, 20, 60, 0.1);
-  }
-  .bnh-modal .bnh-modal-actions { padding: 16px 52px 16px 22px; }
-  .bnh-modal .bnh-modal-heading { padding: 20px 52px 4px 24px; }
-  .bnh-modal .bnh-modal-title {
-    font-family: var(--bnh-font-sans);
-    font-size: 17px;
-    font-weight: 600;
-    line-height: 1.375;
-    letter-spacing: -0.01em;
-  }
-  .bnh-modal .bnh-modal-subtitle { margin-top: 4px; font-size: 12px; color: var(--color-text-muted); }
-  .bnh-modal .bnh-modal-body { padding: 16px 24px 22px; }
-  .bnh-modal .bnh-modal-footer { padding: 13px 22px; background: var(--color-bg-hover); }
 }

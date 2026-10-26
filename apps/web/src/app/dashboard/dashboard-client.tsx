@@ -7,6 +7,7 @@ import { authClient, useSession } from "@/lib/auth-client";
 import type { SessionUser } from "@/lib/session-user";
 import { Button } from "@/components/ui/button";
 import { PageLoading } from "@/components/ui/page-loading";
+import { Surface } from "@/components/ui/surface";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface DashboardClientProps {
@@ -42,9 +43,9 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-text">Dashboard</h1>
-        <div className="flex items-center gap-3">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight text-text">Dashboard</h1>
+        <div className="flex flex-wrap items-center gap-3">
           <ThemeToggle />
           {user.role === "admin" && (
             <Link href="/admin">
@@ -69,11 +70,11 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
         </div>
       </div>
 
-      <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-8">
-        <h2 className="font-display text-xl font-semibold text-text">
+      <Surface className="p-8">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight text-text">
           Your profile
         </h2>
-        <p className="mt-1 text-sm text-text-muted">
+        <p className="mt-2 text-sm text-text-muted">
           Auth is working. Start building your app from here.
         </p>
 
@@ -88,16 +89,16 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
             value={user.emailVerified ? "Yes" : "No"}
           />
         </div>
-      </div>
+      </Surface>
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-border pb-3 last:border-0 last:pb-0">
-      <span className="text-sm text-text-muted">{label}</span>
-      <span className="text-sm font-medium text-text">{value}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-dashed border-border pb-3 last:border-0 last:pb-0">
+      <span className="font-mono text-xs font-bold uppercase tracking-wide text-text-muted">{label}</span>
+      <span className="min-w-0 truncate text-sm font-semibold text-text">{value}</span>
     </div>
   );
 }

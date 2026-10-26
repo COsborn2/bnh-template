@@ -20,7 +20,7 @@ export default function AdminLayout({
   if (isPending) {
     return (
       <div className="flex min-h-screen">
-        <div className="w-60 bg-bg-raised border-r border-border p-4">
+        <div className="w-60 border-r border-border bg-bg-raised p-4">
           <Skeleton className="h-6 w-24 mb-4" />
           <Skeleton className="h-8 w-full mb-2" />
           <Skeleton className="h-8 w-full mb-2" />
@@ -41,13 +41,10 @@ export default function AdminLayout({
   ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
-        <h1 className="font-display text-4xl font-bold text-text">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight text-text">
           404 — Page not found
         </h1>
-        <Link
-          href="/"
-          className="mt-4 text-sm text-text-muted hover:text-text transition-colors"
-        >
+        <Link href="/" className="mt-4 text-sm link-underline">
           Go home
         </Link>
       </div>

@@ -1,0 +1,165 @@
+/* The app's theme: a neobrutalist palette with ink borders and hard offset
+   shadows. Shared components read the --bnh-* tokens declared here; Tailwind
+   utilities map onto the same tokens below, so markup and @cosborn2/ui draw
+   from one source. This file is hand-maintained and belongs to the web app
+   alone (the proxy's loading page keeps its own palette).
+
+   Selectors mirror the package's theme selectors so scoped regions and
+   portaled dialogs pick up the same values. The root layout's theme script
+   adds `.light` or `.dark` to <html>; unclassed means dark. */
+@layer theme {
+  :root {
+    --bnh-font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+    --bnh-font-display: var(--font-bricolage), var(--font-space-grotesk), ui-sans-serif, sans-serif;
+    --bnh-font-display-weight: 800;
+    --bnh-font-mono: var(--font-space-mono), ui-monospace, monospace;
+
+    --bnh-border-width: 2px;
+    --bnh-radius-sm: 4px;
+    --bnh-radius-md: 6px;
+    --bnh-radius-lg: 10px;
+    --bnh-radius-xl: 14px;
+    --bnh-radius-pill: 999px;
+    --bnh-focus-ring-width: 3px;
+    --bnh-focus-ring-offset: 2px;
+
+    --bnh-glass-backdrop-filter: none;
+    --bnh-frosted-backdrop-filter: none;
+    --bnh-modal-backdrop-filter: none;
+    --bnh-popover-backdrop-filter: none;
+    --bnh-modal-backdrop-color: rgb(17 17 17 / 60%);
+
+    /* Bright fills always carry dark text, in both modes. */
+    --app-on-fill: #111111;
+    --app-fill-yellow: #ffd23f;
+    --app-fill-pink: #ff9ecf;
+    --app-fill-blue: #8fd3ff;
+    --app-fill-green: #8ef0a8;
+    --app-fill-orange: #ffb067;
+    --app-fill-violet: #c3b1ff;
+    --app-fill-red: #ff8f8f;
+
+    --app-banner-offset: 0px;
+    --bnh-page-offset: var(--app-banner-offset);
+    --bnh-header-offset: var(--app-banner-offset);
+  }
+
+  :root, .bnh-theme-dark, [data-bnh-theme="dark"] {
+    --app-ink: #000000;
+    --app-dot: rgb(251 245 234 / 7%);
+    --bnh-bg: #26242b;
+    --bnh-bg-2: #36333e;
+    --bnh-surface: #36333e;
+    --bnh-surface-2: #45414e;
+    --bnh-surface-3: #413d4a;
+    --bnh-input: #1e1c22;
+    --bnh-hover: #4d4858;
+    --bnh-border: var(--app-ink);
+    --bnh-border-2: var(--app-ink);
+    --bnh-border-strong: var(--app-ink);
+    --bnh-text: #fbf5ea;
+    --bnh-text-dim: #d6cfc2;
+    --bnh-text-mute: #a8a194;
+    --bnh-accent: #b5a1ff;
+    --bnh-violet: #b5a1ff;
+    --bnh-green: #6ee7a0;
+    --bnh-amber: #ffc14d;
+    --bnh-blue: #8ec5ff;
+    --bnh-red: #ff8a8a;
+    --bnh-orange: #ffa466;
+    --bnh-link: #fbf5ea;
+    --bnh-primary: #ffd23f;
+    --bnh-primary-hover: #ffdd6b;
+    --bnh-primary-text: #111111;
+  }
+
+  :root.light, .bnh-theme-light, [data-bnh-theme="light"] {
+    --app-ink: #111111;
+    --app-dot: rgb(17 17 17 / 11%);
+    --bnh-bg: #fff4df;
+    --bnh-bg-2: #ffffff;
+    --bnh-surface: #ffffff;
+    --bnh-surface-2: #fff0c7;
+    --bnh-surface-3: #ffffff;
+    --bnh-input: #ffffff;
+    --bnh-hover: #ffe7a0;
+    --bnh-border: var(--app-ink);
+    --bnh-border-2: var(--app-ink);
+    --bnh-border-strong: var(--app-ink);
+    --bnh-text: #111111;
+    --bnh-text-dim: #3d3a35;
+    --bnh-text-mute: #5e584f;
+    --bnh-accent: #5b3df5;
+    --bnh-violet: #5b3df5;
+    --bnh-green: #0b7a3b;
+    --bnh-amber: #a84a00;
+    --bnh-blue: #1d4ed8;
+    --bnh-red: #c81e1e;
+    --bnh-orange: #c2410c;
+    --bnh-link: #111111;
+    --bnh-primary: #ffd23f;
+    --bnh-primary-hover: #ffc21a;
+    --bnh-primary-text: #111111;
+  }
+
+  /* Ink-dependent tokens are declared wherever the ink changes so they
+     resolve against the active theme. */
+  :root, .bnh-theme-dark, [data-bnh-theme="dark"], .bnh-theme-light, [data-bnh-theme="light"] {
+    --bnh-control-shadow: 3px 3px 0 var(--app-ink);
+    --bnh-raised-shadow: 5px 5px 0 var(--app-ink);
+    --bnh-menu-shadow: 4px 4px 0 var(--app-ink);
+    --bnh-glass-shadow: 4px 4px 0 var(--app-ink);
+    --bnh-popover-shadow: 8px 8px 0 var(--app-ink);
+    --bnh-popover-background: var(--bnh-bg-2);
+    --bnh-frosted-background: var(--bnh-bg-2);
+    --bnh-input-focus: var(--app-ink);
+    --bnh-input-focus-shadow: 4px 4px 0 var(--bnh-accent);
+  }
+}
+
+/* Tailwind utilities read the same tokens. Legacy color names are kept so
+   existing markup and scaffolded apps keep compiling. */
+@theme inline {
+  --font-sans: var(--bnh-font-sans);
+  --font-body: var(--bnh-font-sans);
+  --font-display: var(--bnh-font-display);
+  --font-mono: var(--bnh-font-mono);
+
+  --color-bg: var(--bnh-bg);
+  --color-bg-raised: var(--bnh-bg-2);
+  --color-bg-card: var(--bnh-surface-3);
+  --color-bg-input: var(--bnh-input);
+  --color-bg-hover: var(--bnh-hover);
+  --color-border: var(--bnh-border);
+  --color-border-focus: var(--bnh-border-strong);
+  --color-ink: var(--app-ink);
+  --color-text: var(--bnh-text);
+  --color-text-muted: var(--bnh-text-dim);
+  --color-text-faint: var(--bnh-text-mute);
+  --color-accent-green: var(--bnh-green);
+  --color-accent-amber: var(--bnh-amber);
+  --color-accent-purple: var(--bnh-accent);
+  --color-accent-blue: var(--bnh-blue);
+  --color-accent-rose: var(--bnh-red);
+  --color-primary: var(--bnh-primary);
+  --color-primary-hover: var(--bnh-primary-hover);
+  --color-primary-text: var(--bnh-primary-text);
+  --color-on-fill: var(--app-on-fill);
+  --color-fill-yellow: var(--app-fill-yellow);
+  --color-fill-pink: var(--app-fill-pink);
+  --color-fill-blue: var(--app-fill-blue);
+  --color-fill-green: var(--app-fill-green);
+  --color-fill-orange: var(--app-fill-orange);
+  --color-fill-violet: var(--app-fill-violet);
+  --color-fill-red: var(--app-fill-red);
+
+  --radius-sm: var(--bnh-radius-sm);
+  --radius-md: var(--bnh-radius-md);
+  --radius-lg: var(--bnh-radius-lg);
+  --radius-xl: var(--bnh-radius-xl);
+
+  --default-border-width: var(--bnh-border-width);
+  --shadow-control: var(--bnh-control-shadow);
+  --shadow-raised: var(--bnh-raised-shadow);
+  --shadow-overlay: var(--bnh-popover-shadow);
+}

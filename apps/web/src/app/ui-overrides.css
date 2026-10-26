@@ -1,0 +1,293 @@
+/* Neobrutalist restyling of @cosborn2/ui. theme.css covers the cross-cutting
+   decisions (palette, ink borders, radii, hard shadows, no blur) through
+   tokens; this file adds what is specific to individual components. Rules
+   target the package's documented class names from the `overrides` layer, so
+   no selector needs doubling or !important. */
+@layer overrides {
+  /* Buttons press into their shadow. */
+  .bnh-button {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  .bnh-button--primary,
+  .bnh-button--secondary,
+  .bnh-button--danger {
+    border-color: var(--app-ink);
+  }
+  .bnh-button--secondary {
+    color: var(--bnh-text);
+  }
+  .bnh-button--secondary:hover {
+    background: var(--bnh-hover);
+  }
+  .bnh-button--danger {
+    background: var(--app-fill-red);
+    color: var(--app-on-fill);
+  }
+  .bnh-button--danger:hover {
+    background: color-mix(in oklch, var(--app-fill-red) 85%, var(--app-ink));
+  }
+  .bnh-button--ghost {
+    color: var(--bnh-text);
+  }
+  .bnh-button:is(.bnh-button--primary, .bnh-button--secondary, .bnh-button--danger):hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--app-ink);
+  }
+  .bnh-button:is(.bnh-button--primary, .bnh-button--secondary, .bnh-button--danger):active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--app-ink);
+  }
+
+  /* Fields */
+  .bnh-input-label,
+  .bnh-select-label {
+    color: var(--bnh-text);
+    font-weight: 700;
+  }
+  .bnh-input:focus,
+  .bnh-select:focus {
+    transform: translate(-1px, -1px);
+  }
+  .bnh-input--error:focus,
+  .bnh-select--error:focus {
+    box-shadow: 4px 4px 0 var(--bnh-red);
+  }
+  .bnh-input-error,
+  .bnh-select-error {
+    font-weight: 700;
+  }
+  .bnh-select-icon {
+    color: var(--bnh-text);
+    stroke-width: 3;
+  }
+
+  /* Feedback: bright fills with dark text. */
+  .bnh-notice {
+    color: var(--bnh-text);
+    border-color: var(--app-ink);
+  }
+  .bnh-notice--success,
+  .bnh-notice--danger {
+    color: var(--app-on-fill);
+    border-color: var(--app-ink);
+  }
+  .bnh-notice--success {
+    background: var(--app-fill-green);
+  }
+  .bnh-notice--danger {
+    background: var(--app-fill-red);
+  }
+  .bnh-notice-heading {
+    font-weight: 800;
+  }
+  .bnh-toast {
+    border-color: var(--app-ink);
+    background: var(--bnh-bg-2);
+  }
+  .bnh-toast__message {
+    font-weight: 700;
+  }
+  .bnh-toast__ring-track {
+    fill: var(--bnh-toast-color);
+    stroke: color-mix(in oklch, var(--app-ink) 25%, var(--bnh-toast-color));
+    stroke-width: 2;
+  }
+  .bnh-toast__ring-progress {
+    stroke: var(--app-ink);
+    stroke-width: 2.5;
+    stroke-linecap: butt;
+  }
+  .bnh-toast__icon {
+    color: var(--app-on-fill);
+  }
+  .bnh-toast--success {
+    --bnh-toast-color: var(--app-fill-green);
+  }
+  .bnh-toast--error {
+    --bnh-toast-color: var(--app-fill-red);
+  }
+  .bnh-toast--info {
+    --bnh-toast-color: var(--app-fill-blue);
+  }
+  .bnh-toast__action {
+    border: var(--bnh-border-width) solid var(--app-ink);
+    background: var(--bnh-primary);
+    color: var(--bnh-primary-text);
+  }
+  .bnh-toast__action:hover {
+    background: var(--bnh-primary-hover);
+  }
+  .bnh-skeleton {
+    background: repeating-linear-gradient(-45deg, var(--bnh-hover) 0 8px, var(--bnh-surface-2) 8px 16px);
+  }
+
+  /* Choices */
+  .bnh-theme-toggle {
+    background: var(--bnh-surface);
+  }
+  .bnh-theme-toggle > button {
+    color: var(--bnh-text-dim);
+  }
+  .bnh-theme-toggle > button:hover {
+    color: var(--bnh-text);
+  }
+  .bnh-theme-toggle > button[aria-pressed="true"] {
+    background: var(--bnh-primary);
+    color: var(--bnh-primary-text);
+    box-shadow: inset 0 0 0 var(--bnh-border-width) var(--app-ink);
+  }
+
+  /* Menus and dialogs */
+  .bnh-actions-menu-trigger {
+    color: var(--bnh-text);
+    border: var(--bnh-border-width) solid transparent;
+  }
+  .bnh-actions-menu-trigger:hover,
+  .bnh-actions-menu-trigger[data-state="open"] {
+    border-color: var(--app-ink);
+  }
+  .bnh-actions-menu-item {
+    font-weight: 600;
+  }
+  .bnh-actions-menu-item[data-highlighted] {
+    background: var(--bnh-primary);
+    color: var(--bnh-primary-text);
+  }
+  .bnh-actions-menu-item--danger[data-highlighted] {
+    background: var(--app-fill-red);
+    color: var(--app-on-fill);
+  }
+  .bnh-modal-close {
+    color: var(--bnh-text);
+    border: var(--bnh-border-width) solid transparent;
+  }
+  .bnh-modal-close:hover {
+    border-color: var(--app-ink);
+    background: var(--bnh-hover);
+  }
+  .bnh-modal-heading {
+    padding: 22px 56px 6px 24px;
+  }
+  .bnh-modal-title {
+    font-size: 26px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  .bnh-modal-subtitle {
+    margin-top: 6px;
+    font-size: 13px;
+  }
+  .bnh-modal-body {
+    padding: 14px 24px 22px;
+  }
+  .bnh-modal-footer {
+    padding: 14px 22px;
+    background: var(--bnh-bg);
+  }
+
+  /* Data */
+  .bnh-data-table__table th {
+    background: var(--app-fill-violet);
+    color: var(--app-on-fill);
+    font-family: var(--bnh-font-mono);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .bnh-data-table__table .bnh-data-table__empty {
+    font-weight: 600;
+  }
+  .bnh-pagination__summary {
+    font-family: var(--bnh-font-mono);
+    font-size: 13px;
+    color: var(--bnh-text);
+  }
+
+  /* Settings */
+  .bnh-header-shell {
+    background: var(--bnh-bg-2);
+  }
+  .bnh-settings-eyebrow {
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 2px 10px;
+    border: var(--bnh-border-width) solid var(--app-ink);
+    border-radius: var(--bnh-radius-sm);
+    background: var(--app-fill-pink);
+    color: var(--app-on-fill);
+    box-shadow: 2px 2px 0 var(--app-ink);
+    font-weight: 700;
+    transform: rotate(-2deg);
+  }
+  .bnh-settings-title {
+    font-size: 56px;
+    letter-spacing: -0.03em;
+  }
+  .bnh-settings-description {
+    font-size: 15px;
+    color: var(--bnh-text);
+  }
+  .bnh-settings-rail-inner {
+    gap: 6px;
+    padding-right: 18px;
+  }
+  .bnh-settings-rail-group {
+    padding-left: 4px;
+    color: var(--bnh-text);
+    font-weight: 700;
+  }
+  .bnh-settings-rail-item {
+    border: var(--bnh-border-width) solid transparent;
+    border-radius: var(--bnh-radius-md);
+    color: var(--bnh-text);
+    font-weight: 600;
+  }
+  .bnh-settings-rail-item:hover {
+    border-color: var(--app-ink);
+    background: var(--bnh-hover);
+  }
+  .bnh-settings-rail-item.is-active {
+    border-color: var(--app-ink);
+    background: var(--bnh-primary);
+    color: var(--bnh-primary-text);
+    box-shadow: var(--bnh-control-shadow);
+  }
+  .bnh-settings-rail-icon {
+    opacity: 1;
+  }
+  .bnh-settings-card-title {
+    font-family: var(--bnh-font-display);
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .bnh-settings-card-subtitle {
+    font-size: 13px;
+  }
+  .bnh-settings-card--danger {
+    border-color: var(--app-ink);
+    background: color-mix(in oklch, var(--app-fill-red) 22%, var(--bnh-bg-2));
+  }
+
+  @media (max-width: 760px) {
+    .bnh-settings-rail {
+      border-bottom: none;
+    }
+    .bnh-settings-rail-inner {
+      padding: 2px 6px 12px 2px;
+    }
+  }
+  @media (max-width: 600px) {
+    .bnh-settings-title {
+      font-size: 42px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bnh-button:hover,
+    .bnh-button:active,
+    .bnh-input:focus,
+    .bnh-select:focus {
+      transform: none;
+    }
+  }
+}

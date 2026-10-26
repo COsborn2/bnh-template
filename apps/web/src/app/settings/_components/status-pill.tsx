@@ -1,7 +1,7 @@
 /** Small green "Verified" / "Connected" style badge used by the settings cards. */
 export function StatusPill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] bg-accent-green/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-green">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-on-fill">
       <svg
         width="9"
         height="9"

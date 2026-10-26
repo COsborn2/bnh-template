@@ -4,9 +4,9 @@ Bun + Turborepo monorepo. `apps/web` = Next.js 16 App Router (port 3000, rewrite
 `/api/*` and `/ws`), `apps/api` = Hono REST + better-auth (port 3001), `apps/ws` = Bun
 WebSocket service (port 3002), `apps/migrate` = drizzle migration runner, `apps/cron` =
 scheduled cleanup, `packages/shared` = shared types, `packages/db` = drizzle schema +
-client, `packages/email` = React Email templates + sender, `packages/otel` = tracing,
-`packages/theme` = design tokens. The Caddy edge proxy is a published image
-(`ghcr.io/cosborn2/bnh-template/proxy`) configured by environment variables.
+client, `packages/email` = React Email templates + sender, `packages/otel` = tracing. The
+Caddy edge proxy is a published image (`ghcr.io/cosborn2/bnh-template/proxy`) configured
+by environment variables.
 
 <!-- template-only -->
 - This repo is a template: `bin/create.ts` scaffolds new apps from it, replacing the
@@ -38,5 +38,10 @@ client, `packages/email` = React Email templates + sender, `packages/otel` = tra
   (https://github.com/COsborn2/ui), published as `@cosborn2/ui`. Use the local UI
   adapters; import each component and its CSS entry. Keep auth/state/network
   policy in the app. Package releases are managed in the standalone UI repository.
+- The web app's look lives in `apps/web/src/app/theme.css` (`--bnh-*` tokens + Tailwind
+  mapping) and `ui-overrides.css` (component restyling in the `overrides` layer). Restyle
+  shared components there by class name instead of wrapping or forking them; prefer the
+  shared `Surface` adapter over hand-rolled card markup. The proxy loading page has its
+  own palette; nothing syncs the two.
 - `next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` and rewrites
   `apps/web/next-env.d.ts`; all three are committed on purpose.
