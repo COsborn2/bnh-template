@@ -16,7 +16,7 @@
     "@app/email": "workspace:*",
     "@app/otel": "workspace:*",
     "@app/shared": "workspace:*",
-    "@opentelemetry/api": "~1.9.1",
+    "@opentelemetry/api": "~1.10.0",
     "better-auth": "^1.7.13",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.14",
