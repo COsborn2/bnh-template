@@ -2,8 +2,8 @@
 # Runs the workspace test suites against a disposable dockerized Postgres +
 # Redis (ports 54329/63799 — the dev compose Postgres owns 5433): migrates,
 # runs `bun run test` (apps/api's suites hit the real database), and tears the
-# containers down. No .env needed. CI's Test job runs the same suites against
-# its own service containers.
+# containers down. Local development and CI use this same entry point; no
+# .env or registry credentials are needed.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -32,12 +32,27 @@ trap cleanup EXIT
 # Clear non-running leftovers from a previous crashed run before binding the ports.
 cleanup
 
-docker run -d --rm --name "$PG_CONTAINER" \
+# Both registries serve Docker Official Images. Fall back when a shared runner
+# hits an anonymous pull quota; fail if neither registry can supply the image.
+pull_test_image() {
+  local image="$1"
+  if docker pull "$image"; then
+    return
+  fi
+  local mirror="public.ecr.aws/docker/library/$image"
+  echo "Docker Hub pull failed; trying $mirror" >&2
+  docker pull "$mirror" && docker tag "$mirror" "$image"
+}
+
+pull_test_image postgres:17-alpine
+pull_test_image redis:7-alpine
+
+docker run --pull=never -d --rm --name "$PG_CONTAINER" \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=myapp_test \
   -p "$PG_PORT":5432 postgres:17-alpine >/dev/null
-docker run -d --rm --name "$REDIS_CONTAINER" \
+docker run --pull=never -d --rm --name "$REDIS_CONTAINER" \
   -p "$REDIS_PORT":6379 redis:7-alpine >/dev/null
 
 # -h 127.0.0.1 so the init-phase temporary server (unix socket only) never
@@ -48,12 +63,25 @@ for i in $(seq 1 60); do
   fi
   if [ "$i" -eq 60 ]; then
     echo "Postgres did not become ready in time" >&2
+    docker logs "$PG_CONTAINER" >&2 || true
     exit 1
   fi
   sleep 0.5
 done
 
-# The same env CI's Test job exports (.github/workflows/ci.yml).
+for i in $(seq 1 60); do
+  if [ "$(docker exec "$REDIS_CONTAINER" redis-cli ping 2>/dev/null)" = "PONG" ]; then
+    break
+  fi
+  if [ "$i" -eq 60 ]; then
+    echo "Redis did not become ready in time" >&2
+    docker logs "$REDIS_CONTAINER" >&2 || true
+    exit 1
+  fi
+  sleep 0.5
+done
+
+# Explicit disposable-service settings keep local and CI tests consistent.
 export DATABASE_URL="postgresql://postgres:postgres@localhost:$PG_PORT/myapp_test"
 export REDIS_URL="redis://localhost:$REDIS_PORT"
 export BETTER_AUTH_SECRET=ci-test-secret

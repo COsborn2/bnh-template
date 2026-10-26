@@ -242,38 +242,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    # Docker's official ECR mirror avoids shared-runner Docker Hub pull quotas.
-    services:
-      postgres:
-        image: public.ecr.aws/docker/library/postgres:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: myapp_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 5
-      redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/myapp_test
-      REDIS_URL: redis://localhost:6379
-      BETTER_AUTH_SECRET: ci-test-secret
-      BETTER_AUTH_URL: http://localhost:3000
-      APP_NAME: MyApp
-      TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
-      WS_API_SECRET: ci-ws-secret
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -284,11 +252,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run migrations
-        run: bun run db:migrate
-
-      - name: Test
-        run: bun run test
+      - name: Test with disposable PostgreSQL and Redis
+        run: bun run test:integration
 
   docker:
     name: Docker ${{ matrix.service }}
