@@ -377,6 +377,8 @@ For this to work safely:
 
 The PAT is used for both the approval and the merge: `github-actions[bot]` approvals fail when **Allow GitHub Actions to create and approve pull requests** is disabled (the recommended hardened setting) and may not satisfy branch-protection review requirements. Using the PAT for the merge also means the resulting merge triggers the normal `push` CI and deploy workflow. If the PAT belongs to your personal account, the approval and auto-merge will be attributed to you; use a machine user PAT if you want a bot identity instead.
 
+Fresh releases wait before they reach the app. The root `bunfig.toml` stops Bun from resolving any package version published in the last three days (`minimumReleaseAge`; installs from `bun.lock` are unaffected), and Dependabot's `cooldown` holds updates for four days, so its PRs always clear that gate. `@cosborn2/ui` is exempt from both. To take an urgent fix sooner, run `bun update <package> --minimum-release-age 0`.
+
 ## Local Troubleshooting
 
 If `bun run db:migrate` fails with:

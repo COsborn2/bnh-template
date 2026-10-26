@@ -32,6 +32,10 @@ by environment variables.
 - Migrations: edit `packages/db/src/schema.ts`, then root `bun run db:generate` and
   `bun run db:migrate`. Never hand-write migration SQL; never rewrite a published
   migration (`apps/migrate/src/migrations.test.ts` pins them).
+- Dependencies: root `bunfig.toml` refuses package versions published in the last
+  3 days (`minimumReleaseAge`) and Dependabot waits 4 (`cooldown`). "Blocked by
+  minimum-release-age" means the version is too new: use an older one, or pass
+  `--minimum-release-age 0` for an urgent fix.
 - Icons: use named imports from `lucide-react`; they render explicit SVGs in both
   server and client components. Font Awesome imports are blocked by ESLint.
 - Shared presentation comes from the standalone `COsborn2/ui` repository

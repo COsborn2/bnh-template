@@ -17,6 +17,13 @@ updates:
           - "minor"
           - "patch"
     open-pull-requests-limit: 10
+    # Wait out the window in which broken or compromised releases are usually
+    # caught. Longer than bunfig.toml's 3-day minimumReleaseAge, so regenerated
+    # lockfiles always clear Bun's gate. First-party UI patches are not delayed.
+    cooldown:
+      default-days: 4
+      exclude:
+        - "@cosborn2/ui"
   - package-ecosystem: "docker"
     directories:
       - "/apps/api"
@@ -32,3 +39,6 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 10
+    # Same delay as package updates.
+    cooldown:
+      default-days: 4
