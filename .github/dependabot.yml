@@ -14,8 +14,13 @@ updates:
     # holds back only its own family instead of every pending update.
     groups:
       nextjs:
-        # eslint-config-next pins the react-hooks lint rules; adopt them together.
-        patterns: ["next", "@next/*", "eslint-config-next", "eslint-plugin-react-hooks"]
+        patterns: ["next", "@next/*"]
+        update-types: ["minor", "patch"]
+      next-lint:
+        # eslint-config-next sets the react-hooks plugin floor, and new plugin
+        # releases can fail lint on existing code. Kept apart from `next` so a
+        # lint migration never holds back framework or security patches.
+        patterns: ["eslint-config-next", "eslint-plugin-react-hooks"]
         update-types: ["minor", "patch"]
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
