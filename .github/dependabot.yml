@@ -9,7 +9,45 @@ updates:
     ignore:
       - dependency-name: "@cosborn2/ui"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    # Each update joins the first group it matches, so families that must move
+    # together come first and the catch-all comes last. A breaking release then
+    # holds back only its own family instead of every pending update.
     groups:
+      nextjs:
+        # eslint-config-next pins the react-hooks lint rules; adopt them together.
+        patterns: ["next", "@next/*", "eslint-config-next", "eslint-plugin-react-hooks"]
+        update-types: ["minor", "patch"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["minor", "patch"]
+      opentelemetry:
+        # The 0.x packages release in lockstep with the stable ones, so every
+        # update type, majors included, lands in one PR.
+        patterns: ["@opentelemetry/*", "@vercel/otel"]
+      better-auth:
+        patterns: ["better-auth", "@better-auth/*"]
+        update-types: ["minor", "patch"]
+      drizzle:
+        patterns: ["drizzle-orm", "drizzle-kit"]
+        update-types: ["minor", "patch"]
+      react-email:
+        patterns: ["react-email", "@react-email/*"]
+        update-types: ["minor", "patch"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*"]
+        update-types: ["minor", "patch"]
+      lint-and-types:
+        # Tooling that only affects lint and typecheck, kept apart so it never
+        # holds back runtime fixes.
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "@types/*"
+        update-types: ["minor", "patch"]
       minor-and-patch:
         # Keep UI version metadata complete for the stable-patch auto-merge guard.
         exclude-patterns: ["@cosborn2/ui"]
