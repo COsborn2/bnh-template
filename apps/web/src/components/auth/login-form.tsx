@@ -71,7 +71,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="text-center">
-        <h2 className="font-display text-2xl font-semibold">Welcome back</h2>
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">Welcome back</h2>
         <p className="mt-1 text-sm text-text-muted">Sign in to your account</p>
       </div>
 
@@ -119,7 +119,7 @@ export function LoginForm() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs">
-          <span className="bg-bg-raised px-3 text-text-faint">or</span>
+          <span className="bg-bg-raised px-3 font-mono font-bold uppercase text-text-muted">or</span>
         </div>
       </div>
 
@@ -137,7 +137,7 @@ export function LoginForm() {
         Don&apos;t have an account?{" "}
         <Link
           href="/auth/register"
-          className="text-accent-purple hover:underline"
+          className="link-underline"
         >
           Sign up
         </Link>

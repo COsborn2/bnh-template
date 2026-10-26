@@ -79,13 +79,13 @@ function ResetPasswordContent() {
   if (!token) {
     return (
       <div className="flex flex-col gap-5 text-center">
-        <h2 className="font-display text-2xl font-semibold">Invalid link</h2>
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">Invalid link</h2>
         <p className="text-sm text-text-muted">
           This password reset link is invalid or has expired.
         </p>
         <Link
           href="/auth/forgot-password"
-          className="text-sm text-accent-purple hover:underline"
+          className="text-sm link-underline"
         >
           Request a new reset link
         </Link>
@@ -96,7 +96,7 @@ function ResetPasswordContent() {
   if (success) {
     return (
       <div className="flex flex-col gap-5 text-center">
-        <h2 className="font-display text-2xl font-semibold">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">
           Password updated
         </h2>
         <p className="text-sm text-text-muted">
@@ -104,7 +104,7 @@ function ResetPasswordContent() {
         </p>
         <Link
           href="/auth/login"
-          className="text-sm text-accent-purple hover:underline"
+          className="text-sm link-underline"
         >
           Sign in with your new password
         </Link>
@@ -115,7 +115,7 @@ function ResetPasswordContent() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="text-center">
-        <h2 className="font-display text-2xl font-semibold">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">
           Set a new password
         </h2>
         <p className="mt-1 text-sm text-text-muted">

@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toaster";
 import { Notice } from "@/components/ui/notice";
+import { Surface } from "@/components/ui/surface";
 import { Ban, Check, UserRoundCog, Trash2, LogOut, Shield } from "lucide-react";
 
 interface AdminUser {
@@ -369,18 +370,18 @@ export default function UserDetailPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-6 w-48" />
-        <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6 space-y-4">
+        <Surface className="space-y-4 p-6">
           <Skeleton className="h-5 w-64" />
           <Skeleton className="h-4 w-48" />
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-4 w-36" />
           <Skeleton className="h-4 w-32" />
-        </div>
-        <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6 space-y-4">
+        </Surface>
+        <Surface className="space-y-4 p-6">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
-        </div>
+        </Surface>
       </div>
     );
   }
@@ -390,7 +391,7 @@ export default function UserDetailPage() {
   if (userError || !user) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <h1 className="font-display text-2xl font-bold text-text">
+        <h1 className="font-display text-2xl font-extrabold tracking-tight text-text">
           User not found
         </h1>
         <Link
@@ -413,45 +414,45 @@ export default function UserDetailPage() {
       <div>
         <Link
           href="/admin/users"
-          className="text-sm text-text-muted hover:text-text transition-colors"
+          className="text-sm link-underline"
         >
           &larr; Back to users
         </Link>
-        <h1 className="mt-2 font-display text-2xl font-bold text-text">
+        <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-text">
           {user.name ?? "Unnamed User"}
         </h1>
       </div>
 
       {/* 1. User Info Card */}
-      <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6 space-y-3">
-        <h2 className="font-display text-lg font-semibold text-text">
+      <Surface className="space-y-3 p-6">
+        <h2 className="font-display text-lg font-extrabold tracking-tight text-text">
           User Info
         </h2>
 
         <div className="grid gap-2 text-sm">
           <div className="flex gap-2">
-            <span className="font-medium text-text-muted w-28">Name</span>
+            <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Name</span>
             <span className="text-text">
               {user.name ?? <span className="text-text-muted">&mdash;</span>}
             </span>
           </div>
           <div className="flex gap-2">
-            <span className="font-medium text-text-muted w-28">Email</span>
+            <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Email</span>
             <span className="text-text">
               {user.email}
               {user.emailVerified ? (
-                <span className="ml-2 rounded-full bg-accent-green/10 px-1.5 py-0.5 text-xs text-accent-green">
+                <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">
                   verified
                 </span>
               ) : (
-                <span className="ml-2 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs text-text-muted">
+                <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-bg-hover px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-text">
                   unverified
                 </span>
               )}
             </span>
           </div>
           <div className="flex gap-2">
-            <span className="font-medium text-text-muted w-28">Username</span>
+            <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Username</span>
             <span className="text-text">
               {user.username ? (
                 `@${user.username}`
@@ -461,14 +462,14 @@ export default function UserDetailPage() {
             </span>
           </div>
           <div className="flex gap-2">
-            <span className="font-medium text-text-muted w-28">Role</span>
+            <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Role</span>
             <span className="text-text">
               {((user.role as string) ?? "user").charAt(0).toUpperCase() +
                 ((user.role as string) ?? "user").slice(1)}
             </span>
           </div>
           <div className="flex gap-2">
-            <span className="font-medium text-text-muted w-28">Created</span>
+            <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Created</span>
             <span className="text-text">
               {new Date(user.createdAt).toLocaleString()}
             </span>
@@ -479,23 +480,23 @@ export default function UserDetailPage() {
         {isBanned && (
           <Notice tone="danger" heading="This user is banned" className="mt-4">
             {user.banReason && (
-              <p className="text-sm text-accent-rose/80">
-                <span className="font-medium">Reason:</span> {user.banReason}
+              <p className="text-sm">
+                <span className="font-bold">Reason:</span> {user.banReason}
               </p>
             )}
             {user.banExpires && (
-              <p className="text-sm text-accent-rose/80">
-                <span className="font-medium">Expires:</span>{" "}
+              <p className="text-sm">
+                <span className="font-bold">Expires:</span>{" "}
                 {new Date(user.banExpires).toLocaleString()}
               </p>
             )}
           </Notice>
         )}
-      </div>
+      </Surface>
 
       {/* 2. Actions Card */}
-      <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6 space-y-6">
-        <h2 className="font-display text-lg font-semibold text-text">
+      <Surface className="space-y-6 p-6">
+        <h2 className="font-display text-lg font-extrabold tracking-tight text-text">
           Actions
         </h2>
 
@@ -507,7 +508,7 @@ export default function UserDetailPage() {
 
         {/* Change role */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-muted">
+          <label className="block text-sm font-bold text-text">
             Change role
           </label>
           <div className="flex items-center gap-3">
@@ -528,7 +529,7 @@ export default function UserDetailPage() {
 
         {/* Ban / Unban */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-muted">
+          <label className="block text-sm font-bold text-text">
             {isBanned ? "Unban user" : "Ban user"}
           </label>
           {isBanned ? (
@@ -569,7 +570,7 @@ export default function UserDetailPage() {
 
         {/* Revoke all sessions */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-muted">
+          <label className="block text-sm font-bold text-text">
             Revoke all sessions
           </label>
           <div>
@@ -582,7 +583,7 @@ export default function UserDetailPage() {
 
         {/* Impersonate */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-muted">
+          <label className="block text-sm font-bold text-text">
             Impersonate
           </label>
           <div>
@@ -599,7 +600,7 @@ export default function UserDetailPage() {
 
         {/* Delete user */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text-muted">
+          <label className="block text-sm font-bold text-text">
             Delete user
           </label>
           <div>
@@ -613,11 +614,11 @@ export default function UserDetailPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </Surface>
 
       {/* 3. Sessions Table */}
-      <div className="rounded-[var(--radius-xl)] border border-border bg-bg-raised p-6 space-y-4">
-        <h2 className="font-display text-lg font-semibold text-text">
+      <Surface className="space-y-4 p-6">
+        <h2 className="font-display text-lg font-extrabold tracking-tight text-text">
           Sessions
         </h2>
         <DataTable
@@ -627,7 +628,7 @@ export default function UserDetailPage() {
           loading={sessionsLoading}
           emptyMessage="No active sessions."
         />
-      </div>
+      </Surface>
 
       {/* Confirm dialogs */}
       <ConfirmDialog

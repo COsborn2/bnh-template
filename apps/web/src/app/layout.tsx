@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Bricolage_Grotesque, Space_Grotesk, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE_URL, SITE_URL_IS_CONFIGURED } from "@/lib/site";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -8,10 +8,10 @@ import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 
 // Self-hosted via next/font: the files are downloaded at build time and served
 // from /_next/static, so no runtime request goes to Google Fonts. The CSS
-// variables are mapped onto --font-body / --font-display in globals.css.
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
-const instrumentSerif = Instrument_Serif({ weight: "400", subsets: ["latin"], style: ["normal", "italic"], variable: "--font-instrument-serif", display: "swap" });
+// variables are mapped onto the shared UI and Tailwind font tokens in theme.css.
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk", display: "swap" });
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "swap" });
+const spaceMono = Space_Mono({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-space-mono", display: "swap" });
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "MyApp";
 const description = "A modern full-stack web application";
@@ -54,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
+      className={`${spaceGrotesk.variable} ${bricolage.variable} ${spaceMono.variable}`}
       suppressHydrationWarning
     >
       <head>

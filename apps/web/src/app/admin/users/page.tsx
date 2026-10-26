@@ -196,7 +196,7 @@ export default function AdminUsersPage() {
       render: (user: AdminUser) => (
         <Link
           href={`/admin/users/${user.id}`}
-          className="text-accent-purple hover:underline"
+          className="link-underline"
         >
           {user.name ?? "Unnamed User"}
         </Link>
@@ -209,11 +209,11 @@ export default function AdminUsersPage() {
         <span>
           {user.email}
           {user.emailVerified ? (
-            <span className="ml-2 rounded-full bg-accent-green/10 px-1.5 py-0.5 text-xs text-accent-green">
+            <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">
               verified
             </span>
           ) : (
-            <span className="ml-2 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs text-text-muted">
+            <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-bg-hover px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-text">
               unverified
             </span>
           )}
@@ -243,9 +243,9 @@ export default function AdminUsersPage() {
       header: "Status",
       render: (user: AdminUser) =>
         user.banned ? (
-          <span className="text-accent-rose">Banned</span>
+          <span className="rounded-[var(--radius-sm)] border border-border bg-fill-red px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">Banned</span>
         ) : (
-          <span className="text-accent-green">Active</span>
+          <span className="rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">Active</span>
         ),
     },
     {
@@ -295,7 +295,7 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold text-text">Users</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight text-text">Users</h1>
         <p className="mt-1 text-sm text-text-muted">
           Manage users, roles, and access
         </p>

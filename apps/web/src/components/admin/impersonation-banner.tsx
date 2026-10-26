@@ -89,17 +89,17 @@ export function ImpersonationBannerView({
     };
   }, []);
   return (
-    <div ref={bannerRef} className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-accent-amber/40 bg-accent-amber px-4 py-2">
+    <div ref={bannerRef} className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-ink bg-fill-orange px-4 py-2">
       {/* min-w-0 + break-words: an unbroken user name must wrap — in flow it
           would otherwise widen the document and add a page-wide horizontal
           scrollbar. */}
-      <span className="min-w-0 break-words text-sm font-medium text-black">
+      <span className="min-w-0 break-words text-sm font-bold text-on-fill">
         You are impersonating {userName}
       </span>
-      <Button variant="ghost" size="sm"
+      <Button variant="secondary" size="sm"
         type="button"
         onClick={onStop}
-        className="shrink-0 rounded bg-black/20 px-3 py-1 text-sm font-medium text-black hover:bg-black/30"
+        className="shrink-0"
       >
         Stop impersonating
       </Button>

@@ -14,6 +14,7 @@ import {
 import { useWebSocket, type WebSocketStatus } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Surface } from "@/components/ui/surface";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PresenceUser } from "@app/shared";
 
@@ -35,10 +36,10 @@ const STATUS_LABEL: Record<WebSocketStatus, string> = {
 };
 
 const STATUS_CLASS: Record<WebSocketStatus, string> = {
-  connecting: "text-accent-amber",
-  connected: "text-accent-green",
-  reconnecting: "text-accent-amber",
-  offline: "text-accent-rose",
+  connecting: "bg-fill-yellow",
+  connected: "bg-fill-green",
+  reconnecting: "bg-fill-orange",
+  offline: "bg-fill-red",
 };
 
 export function ChatPage() {
@@ -121,14 +122,18 @@ export function ChatPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-4 py-6 md:py-8">
-      <div className="mb-4 flex flex-col gap-4 rounded-[var(--radius-xl)] border border-border bg-bg-raised p-4 md:flex-row md:items-start md:justify-between">
+      <Surface className="mb-5 flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-text">
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-text">
             Lobby Chat
           </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            <span className={STATUS_CLASS[status]}>{STATUS_LABEL[status]}</span>
-            {" · "}#{TOPIC.split(":")[1]}
+          <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
+            <span
+              className={`rounded-[var(--radius-sm)] border border-border px-1.5 py-0.5 font-mono text-xs font-bold uppercase text-on-fill ${STATUS_CLASS[status]}`}
+            >
+              {STATUS_LABEL[status]}
+            </span>
+            <span className="font-mono">#{TOPIC.split(":")[1]}</span>
           </p>
           {onlineUsers.length > 0 && (
             <p className="mt-1 text-sm text-text-muted">
@@ -169,9 +174,9 @@ export function ChatPage() {
             </Link>
           )}
         </div>
-      </div>
+      </Surface>
 
-      <div className="mb-4 grid gap-3 rounded-[var(--radius-xl)] border border-border bg-bg-raised p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+      <Surface className="mb-5 grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
         <Input
           label="Name"
           value={currentIdentity.userName}
@@ -183,13 +188,13 @@ export function ChatPage() {
             Randomize guest
           </Button>
         ) : (
-          <div className="rounded-[var(--radius-md)] border border-border bg-bg-card px-3 py-2 text-sm text-text-muted">
+          <div className="rounded-[var(--radius-md)] border border-border bg-fill-blue px-3 py-2 text-sm font-semibold text-on-fill">
             Signed in as {currentIdentity.userName}
           </div>
         )}
-      </div>
+      </Surface>
 
-      <div className="flex-1 overflow-y-auto rounded-[var(--radius-xl)] border border-border bg-bg-raised p-4">
+      <Surface className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="py-8 text-center text-sm text-text-faint">
             No messages yet. Send one to verify the websocket flow end to end.
@@ -203,15 +208,15 @@ export function ChatPage() {
               className={`mb-3 flex ${isMe ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-[var(--radius-lg)] px-4 py-2 text-sm ${
+                className={`max-w-[80%] rounded-[var(--radius-lg)] border border-border px-4 py-2 text-sm shadow-control ${
                   isMe
-                    ? "bg-primary text-bg"
-                    : "border border-border bg-bg-card text-text"
+                    ? "rounded-br-none bg-primary text-primary-text"
+                    : "rounded-bl-none bg-bg-card text-text"
                 }`}
               >
                 <div
-                  className={`mb-1 text-xs font-medium ${
-                    isMe ? "text-bg/80" : "text-text-muted"
+                  className={`mb-1 font-mono text-xs font-bold ${
+                    isMe ? "text-primary-text/75" : "text-text-muted"
                   }`}
                 >
                   {msg.userName}
@@ -223,15 +228,16 @@ export function ChatPage() {
           );
         })}
         <div ref={messagesEndRef} />
-      </div>
+      </Surface>
 
-      <form onSubmit={handleSend} className="mt-4 flex gap-2">
+      <form onSubmit={handleSend} className="mt-5 flex gap-3">
         <Input
+          aria-label="Message"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
           autoFocus
-          className="flex-1"
+          wrapperClassName="flex-1"
         />
         <Button type="submit" disabled={!connected || !input.trim()}>
           Send

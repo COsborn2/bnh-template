@@ -160,7 +160,7 @@ function VerifyEmailContent() {
     if (status === "verifying") {
       return (
         <div className="flex flex-col gap-5 text-center">
-          <h2 className="font-display text-2xl font-semibold">
+          <h2 className="font-display text-2xl font-extrabold tracking-tight">
             Verifying your email
           </h2>
           <p className="text-sm text-text-muted">Please wait...</p>
@@ -171,7 +171,7 @@ function VerifyEmailContent() {
     if (status === "success") {
       return (
         <div className="flex flex-col gap-5 text-center">
-          <h2 className="font-display text-2xl font-semibold">
+          <h2 className="font-display text-2xl font-extrabold tracking-tight">
             Email verified
           </h2>
           <p className="text-sm text-text-muted">
@@ -179,7 +179,7 @@ function VerifyEmailContent() {
           </p>
           <Link
             href="/auth/login"
-            className="text-sm text-accent-purple hover:underline"
+            className="text-sm link-underline"
           >
             Continue to sign in
           </Link>
@@ -189,7 +189,7 @@ function VerifyEmailContent() {
 
     return (
       <div className="flex flex-col gap-5 text-center">
-        <h2 className="font-display text-2xl font-semibold">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">
           Verification failed
         </h2>
         <p className="text-sm text-text-muted">
@@ -199,7 +199,7 @@ function VerifyEmailContent() {
         {email && !resendSuccess && renderResendForm()}
         <Link
           href="/auth/login"
-          className="text-sm text-accent-purple hover:underline"
+          className="text-sm link-underline"
         >
           Back to sign in
         </Link>
@@ -211,7 +211,7 @@ function VerifyEmailContent() {
   return (
     <div className="flex flex-col gap-5 text-center">
       <div>
-        <h2 className="font-display text-2xl font-semibold">
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">
           Check your email
         </h2>
         <p className="mt-2 text-sm text-text-muted">
@@ -231,7 +231,7 @@ function VerifyEmailContent() {
 
       <Link
         href="/auth/login"
-        className="text-sm text-accent-purple hover:underline"
+        className="text-sm link-underline"
       >
         Back to sign in
       </Link>

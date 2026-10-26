@@ -1,9 +1,0 @@
-{
-  "name": "@app/theme",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "exports": {
-    "./colors.json": "./colors.json"
-  }
-}
