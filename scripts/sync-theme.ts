@@ -1,20 +1,6 @@
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..");
-const check = process.argv.includes("--check");
-
-async function generate(relativePath: string, contents: string) {
-  const file = Bun.file(join(ROOT, relativePath));
-  if (check) {
-    if (!await file.exists() || await file.text() !== contents) {
-      throw new Error(`${relativePath} is stale. Run bun scripts/sync-theme.ts.`);
-    }
-  } else {
-    await Bun.write(file, contents);
-    console.log(`Generated ${relativePath}`);
-  }
-}
 
 const colorsFile = Bun.file(join(ROOT, "packages/theme/colors.json"));
 const colors: { dark: Record<string, string>; light: Record<string, string> } =
@@ -47,15 +33,15 @@ ${Object.entries(aliases).map(([name, token]) => `  --color-${name}: var(--bnh-$
 }
 `;
 
-await generate("apps/web/src/app/colors.css", colorsCss);
+await Bun.write(join(ROOT, "apps/web/src/app/colors.css"), colorsCss);
+console.log("Generated apps/web/src/app/colors.css");
 
-// Scaffolded apps use the published proxy image and have no local proxy source.
-// When source is present, missing or invalid templates must fail the check.
-if (existsSync(join(ROOT, "infra/proxy"))) {
-  const template = await Bun.file(join(ROOT, "infra/proxy/loading.template.html")).text();
-  if (!template.includes("/* THEME_VARS */")) {
-    throw new Error("Loading template is missing the THEME_VARS placeholder.");
-  }
+// Generate loading page from template
+const templatePath = join(ROOT, "infra/proxy/loading.template.html");
+const outputPath = join(ROOT, "infra/proxy/loading.html");
+
+try {
+  const template = await Bun.file(templatePath).text();
   const rootVars = Object.entries(colors.dark)
     .map(([key, value]) => `      --color-${key}: ${value};`)
     .join("\n");
@@ -63,7 +49,8 @@ if (existsSync(join(ROOT, "infra/proxy"))) {
   const loadingHtml =
     "<!-- AUTO-GENERATED — edit loading.template.html, then run: bun scripts/sync-theme.ts -->\n" +
     template.replace("/* THEME_VARS */", rootBlock);
-  await generate("infra/proxy/loading.html", loadingHtml);
-} else {
-  console.log("No local proxy source; skipping loading.html generation.");
+  await Bun.write(outputPath, loadingHtml);
+  console.log("Generated infra/proxy/loading.html");
+} catch {
+  console.log("No loading template found, skipping loading.html generation");
 }

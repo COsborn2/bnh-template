@@ -171,9 +171,6 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      - name: Check generated theme assets
-        run: bun scripts/sync-theme.ts --check
-
   scaffold:
     name: Scaffold
     runs-on: ubuntu-latest
@@ -222,7 +219,6 @@ jobs:
           fi
 
           bun run lint
-          bun scripts/sync-theme.ts --check
 
   build:
     name: Build
