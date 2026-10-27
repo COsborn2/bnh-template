@@ -9,9 +9,9 @@ updates:
     ignore:
       - dependency-name: "@cosborn2/ui"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
-    # Each update joins the first group it matches, so families that must move
-    # together come first and the catch-all comes last. A breaking release then
-    # holds back only its own family instead of every pending update.
+    # Families that must move together get their own groups, and the catch-all
+    # comes last. A breaking release then holds back only its own family instead
+    # of every pending update.
     groups:
       nextjs:
         patterns: ["next", "@next/*"]
@@ -54,8 +54,39 @@ updates:
           - "@types/*"
         update-types: ["minor", "patch"]
       minor-and-patch:
-        # Keep UI version metadata complete for the stable-patch auto-merge guard.
-        exclude-patterns: ["@cosborn2/ui"]
+        # When a family's own group can't open a PR, Dependabot offers its
+        # packages to the next matching group, which would split a family such
+        # as OpenTelemetry 3.0 into broken single-package bumps. The catch-all
+        # therefore excludes every pattern above; keep the two lists in sync.
+        # @cosborn2/ui stays out to keep UI version metadata complete for the
+        # stable-patch auto-merge guard.
+        exclude-patterns:
+          - "@cosborn2/ui"
+          - "next"
+          - "@next/*"
+          - "eslint-config-next"
+          - "eslint-plugin-react-hooks"
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "@opentelemetry/*"
+          - "@vercel/otel"
+          - "better-auth"
+          - "@better-auth/*"
+          - "drizzle-orm"
+          - "drizzle-kit"
+          - "react-email"
+          - "@react-email/*"
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "@types/*"
         update-types:
           - "minor"
           - "patch"
