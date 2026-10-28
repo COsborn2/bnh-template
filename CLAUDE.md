@@ -17,6 +17,13 @@ by environment variables.
   here. README.md and DEPLOYMENT.md are copied into scaffolded apps: keep them generic
   and keep the placeholders. CI's `scaffold` job creates an app and fails on any
   leftover placeholder.
+- Scaffolds don't get `bun.lock`, so `bun create` and the `scaffold` job resolve every
+  version fresh under the 3-day `minimumReleaseAge` gate. Never raise a version in a
+  `package.json` to a release younger than that: new apps couldn't install, and the
+  `scaffold` job would fail on every PR until it ages out. Dependabot's 4-day cooldown
+  and plain `bun add`/`bun update` already respect this. If an urgent fix must, also
+  list the package in `minimumReleaseAgeExcludes` until the release is 3 days old, then
+  remove it (its own dependencies are still checked).
 <!-- /template-only -->
 - Never hardcode a product name in user-facing copy — read `NEXT_PUBLIC_APP_NAME` /
   `APP_NAME` (fallback `MyApp`).
