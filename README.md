@@ -414,7 +414,7 @@ The app restyles the shared components rather than forking them, so it doubles a
 
 Change the look by editing those two files.
 
-Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
+Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also creates an app, installs it from the template's lockfile, and validates it.
 
 Review `@cosborn2/ui` minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates and keeps UI updates out of dependency groups. Automatic approval and merging require a patch update between two stable versions with complete version metadata; beta updates and missing metadata require manual review.
 

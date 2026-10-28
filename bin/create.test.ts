@@ -28,7 +28,11 @@ test("a generated project keeps the published UI dependency and replaces its own
   expect(web.dependencies["@cosborn2/ui"]).toBe(sourceWeb.dependencies["@cosborn2/ui"]);
   expect(web.dependencies["@app/shared"]).toBeUndefined();
   expect(web.dependencies["lucide-react"]).toBe(sourceWeb.dependencies["lucide-react"]);
-  for (const excluded of ["node_modules", ".git", "bun.lock", "bin", "infra"]) {
+  const lockfile = await readFile(join(destination, "bun.lock"), "utf8");
+  expect(lockfile).not.toContain("@app/");
+  expect(lockfile).toContain('"@sample-app/web"');
+  expect(lockfile).toMatch(/"workspaces": \{\s*"": \{\s*"name": "sample-app"/);
+  for (const excluded of ["node_modules", ".git", "bin", "infra"]) {
     expect(existsSync(join(destination, excluded))).toBe(false);
   }
 });

@@ -176,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     # Guards the template's own contract: `bun create bnh` must produce an app
     # with every placeholder rewritten (bin/create.ts REPLACEMENT_FILES) that
-    # lints and typechecks against freshly resolved dependencies. Scaffolded
+    # installs from the template's lockfile and lints and typechecks. Scaffolded
     # apps have no bin/create.ts, so the job is a no-op there.
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -213,11 +213,13 @@ jobs:
           cd "$work/smoke-app"
 
           pattern='\bMyApp\b|\bmyapp\b|@app/|bun-template'
-          if grep -rnE "$pattern" --exclude-dir=node_modules --exclude-dir=.git --exclude=bun.lock .; then
+          if grep -rnE "$pattern" --exclude-dir=node_modules --exclude-dir=.git .; then
             echo "::error::the scaffold still contains template placeholders (add the file to REPLACEMENT_FILES in bin/create.ts)"
             exit 1
           fi
 
+          # The renamed lockfile must still match the renamed manifests exactly.
+          bun install --frozen-lockfile
           bun run lint
 
   build:
