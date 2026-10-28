@@ -377,6 +377,8 @@ For this to work safely:
 
 The PAT is used for both the approval and the merge: `github-actions[bot]` approvals fail when **Allow GitHub Actions to create and approve pull requests** is disabled (the recommended hardened setting) and may not satisfy branch-protection review requirements. Using the PAT for the merge also means the resulting merge triggers the normal `push` CI and deploy workflow. If the PAT belongs to your personal account, the approval and auto-merge will be attributed to you; use a machine user PAT if you want a bot identity instead.
 
+Fresh releases wait before they reach the app. The root `bunfig.toml` stops Bun from resolving any package version published in the last three days (`minimumReleaseAge`; installs from `bun.lock` are unaffected), and Dependabot's `cooldown` holds updates for four days, so its PRs always clear that gate. `@cosborn2/ui` is exempt from both. To take an urgent fix sooner, run `bun update <package> --minimum-release-age 0`.
+
 ## Local Troubleshooting
 
 If `bun run db:migrate` fails with:
@@ -412,7 +414,7 @@ The app restyles the shared components rather than forking them, so it doubles a
 
 Change the look by editing those two files.
 
-Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also installs fresh dependencies and validates the generated app.
+Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also creates an app, installs it from the template's lockfile, and validates it.
 
 Review `@cosborn2/ui` minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates and keeps UI updates out of dependency groups. Automatic approval and merging require a patch update between two stable versions with complete version metadata; beta updates and missing metadata require manual review.
 

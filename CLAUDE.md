@@ -17,6 +17,9 @@ by environment variables.
   here. README.md and DEPLOYMENT.md are copied into scaffolded apps: keep them generic
   and keep the placeholders. CI's `scaffold` job creates an app and fails on any
   leftover placeholder.
+- Scaffolds copy `bun.lock` (it is in `REPLACEMENT_FILES`, renamed with the
+  workspaces) and install from it, so new apps start on the template's tested versions
+  and the release-age gate never blocks `bun create` or the `scaffold` job.
 <!-- /template-only -->
 - Never hardcode a product name in user-facing copy — read `NEXT_PUBLIC_APP_NAME` /
   `APP_NAME` (fallback `MyApp`).
@@ -32,6 +35,10 @@ by environment variables.
 - Migrations: edit `packages/db/src/schema.ts`, then root `bun run db:generate` and
   `bun run db:migrate`. Never hand-write migration SQL; never rewrite a published
   migration (`apps/migrate/src/migrations.test.ts` pins them).
+- Dependencies: root `bunfig.toml` refuses package versions published in the last
+  3 days (`minimumReleaseAge`) and Dependabot waits 4 (`cooldown`). "Blocked by
+  minimum-release-age" means the version is too new: use an older one, or pass
+  `--minimum-release-age 0` for an urgent fix.
 - Icons: use named imports from `lucide-react`; they render explicit SVGs in both
   server and client components. Font Awesome imports are blocked by ESLint.
 - Shared presentation comes from the standalone `COsborn2/ui` repository

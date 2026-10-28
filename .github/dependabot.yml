@@ -9,14 +9,95 @@ updates:
     ignore:
       - dependency-name: "@cosborn2/ui"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    # Families that must move together get their own groups, and the catch-all
+    # comes last. A breaking release then holds back only its own family instead
+    # of every pending update.
     groups:
+      nextjs:
+        patterns: ["next", "@next/*"]
+        update-types: ["minor", "patch"]
+      next-lint:
+        # eslint-config-next sets the react-hooks plugin floor, and new plugin
+        # releases can fail lint on existing code. Kept apart from `next` so a
+        # lint migration never holds back framework or security patches.
+        patterns: ["eslint-config-next", "eslint-plugin-react-hooks"]
+        update-types: ["minor", "patch"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["minor", "patch"]
+      opentelemetry:
+        # The 0.x packages release in lockstep with the stable ones, so every
+        # update type, majors included, lands in one PR.
+        patterns: ["@opentelemetry/*", "@vercel/otel"]
+      better-auth:
+        patterns: ["better-auth", "@better-auth/*"]
+        update-types: ["minor", "patch"]
+      drizzle:
+        patterns: ["drizzle-orm", "drizzle-kit"]
+        update-types: ["minor", "patch"]
+      react-email:
+        patterns: ["react-email", "@react-email/*"]
+        update-types: ["minor", "patch"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*"]
+        update-types: ["minor", "patch"]
+      lint-and-types:
+        # Tooling that only affects lint and typecheck, kept apart so it never
+        # holds back runtime fixes.
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "@types/*"
+        update-types: ["minor", "patch"]
       minor-and-patch:
-        # Keep UI version metadata complete for the stable-patch auto-merge guard.
-        exclude-patterns: ["@cosborn2/ui"]
+        # When a family's own group can't open a PR, Dependabot offers its
+        # packages to the next matching group, which would split a family such
+        # as OpenTelemetry 3.0 into broken single-package bumps. The catch-all
+        # therefore excludes every pattern above; keep the two lists in sync.
+        # @cosborn2/ui stays out to keep UI version metadata complete for the
+        # stable-patch auto-merge guard.
+        exclude-patterns:
+          - "@cosborn2/ui"
+          - "next"
+          - "@next/*"
+          - "eslint-config-next"
+          - "eslint-plugin-react-hooks"
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "@opentelemetry/*"
+          - "@vercel/otel"
+          - "better-auth"
+          - "@better-auth/*"
+          - "drizzle-orm"
+          - "drizzle-kit"
+          - "react-email"
+          - "@react-email/*"
+          - "tailwindcss"
+          - "@tailwindcss/*"
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "@types/*"
         update-types:
           - "minor"
           - "patch"
     open-pull-requests-limit: 10
+    # Wait out the window in which broken or compromised releases are usually
+    # caught. Longer than bunfig.toml's 3-day minimumReleaseAge, so regenerated
+    # lockfiles always clear Bun's gate. First-party UI patches are not delayed.
+    cooldown:
+      default-days: 4
+      exclude:
+        - "@cosborn2/ui"
   - package-ecosystem: "docker"
     directories:
       - "/apps/api"
@@ -32,3 +113,6 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 10
+    # Same delay as package updates.
+    cooldown:
+      default-days: 4

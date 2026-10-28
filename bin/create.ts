@@ -68,7 +68,7 @@ const EXCLUDE_ANYWHERE_DIRS = new Set([
   ".next",
   "dist",
 ]);
-const EXCLUDE_FILES = new Set(["bun.lock", ".env.local"]);
+const EXCLUDE_FILES = new Set([".env.local"]);
 
 export async function copyTemplate(templateDir: string, dest: string) {
   await cp(templateDir, dest, {
@@ -98,6 +98,9 @@ export async function copyTemplate(templateDir: string, dest: string) {
 const REPLACEMENT_FILES = [
   // Config & Environment
   "package.json",
+  // Scaffolds install the template's tested lockfile, renamed with the
+  // workspaces, instead of resolving every version fresh.
+  "bun.lock",
   "apps/api/package.json",
   "apps/web/package.json",
   "apps/ws/package.json",
@@ -207,6 +210,12 @@ export async function replaceInFiles(dest: string, r: Replacements) {
       delete pkg.bin;
       delete pkg.scripts?.["test:scaffold"];
       content = JSON.stringify(pkg, null, 2) + "\n";
+    }
+
+    // The lockfile records the root package name; keep it in step with the
+    // rename above so the install doesn't treat the root as changed.
+    if (file === "bun.lock") {
+      content = content.replace(/("workspaces": \{\s*"": \{\s*"name": )"[^"]*"/, `$1${JSON.stringify(r.projectName)}`);
     }
 
     // Replace display name (MyApp → PascalCase derived name)

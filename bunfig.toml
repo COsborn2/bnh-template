@@ -1,0 +1,12 @@
+[install]
+# Refuse package versions published in the last 3 days: most broken or
+# compromised npm releases are caught and pulled within that window. Bun applies
+# this whenever it resolves a version (`bun add`, `bun update`, installing
+# without a lockfile); installs from an existing bun.lock are unaffected.
+# Dependabot's cooldown (.github/dependabot.yml) waits longer, so its updates
+# always clear this gate. To take an urgent fix sooner:
+#   bun update <package> --minimum-release-age 0
+minimumReleaseAge = 259200 # seconds
+# First-party UI releases are reviewed in COsborn2/ui and adopted deliberately.
+# Their own dependencies still go through the gate.
+minimumReleaseAgeExcludes = ["@cosborn2/ui"]
