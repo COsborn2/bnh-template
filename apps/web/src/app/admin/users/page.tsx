@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Pagination } from "@/components/ui/pagination";
+import { Tag } from "@/components/ui/tag";
 import { toast } from "@/components/ui/toaster";
 
 /** Row shape of GET /api/admin/users; dates are ISO strings. */
@@ -209,13 +210,13 @@ export default function AdminUsersPage() {
         <span>
           {user.email}
           {user.emailVerified ? (
-            <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">
+            <Tag tone="green" className="ml-2">
               verified
-            </span>
+            </Tag>
           ) : (
-            <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-bg-hover px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-text">
+            <Tag className="ml-2">
               unverified
-            </span>
+            </Tag>
           )}
         </span>
       ),
@@ -243,9 +244,9 @@ export default function AdminUsersPage() {
       header: "Status",
       render: (user: AdminUser) =>
         user.banned ? (
-          <span className="rounded-[var(--radius-sm)] border border-border bg-fill-red px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">Banned</span>
+          <Tag tone="red">Banned</Tag>
         ) : (
-          <span className="rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">Active</span>
+          <Tag tone="green">Active</Tag>
         ),
     },
     {
@@ -295,7 +296,7 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-text">Users</h1>
+        <h1 className="font-display text-2xl text-text">Users</h1>
         <p className="mt-1 text-sm text-text-muted">
           Manage users, roles, and access
         </p>

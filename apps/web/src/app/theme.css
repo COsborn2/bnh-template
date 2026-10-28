@@ -1,7 +1,8 @@
-/* The app's theme: a neobrutalist palette with ink borders and hard offset
-   shadows. Shared components read the --bnh-* tokens declared here; Tailwind
-   utilities map onto the same tokens below, so markup and @cosborn2/ui draw
-   from one source.
+/* The app's theme, modelled on neobrutalism.com: cream paper, white cards,
+   square corners, solid rules, hard offset shadows, and a single bright
+   yellow for primary actions. Shared components read the --bnh-* tokens
+   declared here; Tailwind utilities map onto the same tokens below, so markup
+   and @cosborn2/ui draw from one source.
 
    Selectors mirror the package's theme selectors so scoped regions and
    portaled dialogs pick up the same values. The root layout's theme script
@@ -9,16 +10,17 @@
 @layer theme {
   :root {
     --bnh-font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
-    --bnh-font-display: var(--font-bricolage), var(--font-space-grotesk), ui-sans-serif, sans-serif;
-    --bnh-font-display-weight: 800;
+    --bnh-font-display: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+    --bnh-font-display-weight: 700;
     --bnh-font-mono: var(--font-space-mono), ui-monospace, monospace;
 
+    /* Square panels, barely-rounded controls, no pills. */
     --bnh-border-width: 2px;
     --bnh-radius-sm: 4px;
-    --bnh-radius-md: 6px;
-    --bnh-radius-lg: 10px;
-    --bnh-radius-xl: 14px;
-    --bnh-radius-pill: 999px;
+    --bnh-radius-md: 4px;
+    --bnh-radius-lg: 0px;
+    --bnh-radius-xl: 0px;
+    --bnh-radius-pill: 4px;
     --bnh-focus-ring-width: 3px;
     --bnh-focus-ring-offset: 2px;
 
@@ -26,11 +28,11 @@
     --bnh-frosted-backdrop-filter: none;
     --bnh-modal-backdrop-filter: none;
     --bnh-popover-backdrop-filter: none;
-    --bnh-modal-backdrop-color: rgb(17 17 17 / 60%);
+    --bnh-modal-backdrop-color: rgb(0 0 0 / 55%);
 
     /* Bright fills always carry dark text, in both modes. */
-    --app-on-fill: #111111;
-    --app-fill-yellow: #ffd23f;
+    --app-on-fill: #000000;
+    --app-fill-yellow: #ffdc58;
     --app-fill-pink: #ff9ecf;
     --app-fill-blue: #8fd3ff;
     --app-fill-green: #8ef0a8;
@@ -38,13 +40,23 @@
     --app-fill-violet: #c3b1ff;
     --app-fill-red: #ff8f8f;
 
+    /* Selected and highlighted states share the primary yellow. */
+    --app-select: var(--bnh-primary);
+
+    /* Rule width for inline component styles
+       (`border: var(--app-rule-width) solid var(--app-ink)`). */
+    --app-rule-width: 2px;
+
     --app-banner-offset: 0px;
     --bnh-page-offset: var(--app-banner-offset);
     --bnh-header-offset: var(--app-banner-offset);
   }
 
+  /* Dark: the soft charcoal palette (easier on the eyes than near-black)
+     with black rules and shadows. */
   :root, .bnh-theme-dark, [data-bnh-theme="dark"] {
     --app-ink: #000000;
+    --app-shadow-ink: #000000;
     --app-dot: rgb(251 245 234 / 7%);
     --bnh-bg: #26242b;
     --bnh-bg-2: #36333e;
@@ -59,7 +71,9 @@
     --bnh-text: #fbf5ea;
     --bnh-text-dim: #d6cfc2;
     --bnh-text-mute: #a8a194;
-    --bnh-accent: #b5a1ff;
+    /* Accent is ink: emphasis, focus rings and link rules read black/cream;
+       colour comes from the yellow primary and the --app-fill-* blocks. */
+    --bnh-accent: #fbf5ea;
     --bnh-violet: #b5a1ff;
     --bnh-green: #6ee7a0;
     --bnh-amber: #ffc14d;
@@ -73,46 +87,52 @@
   }
 
   :root.light, .bnh-theme-light, [data-bnh-theme="light"] {
-    --app-ink: #111111;
-    --app-dot: rgb(17 17 17 / 11%);
-    --bnh-bg: #fff4df;
+    --app-ink: #000000;
+    --app-shadow-ink: #000000;
+    --app-dot: rgb(0 0 0 / 9%);
+    --bnh-bg: #fff7e8;
     --bnh-bg-2: #ffffff;
     --bnh-surface: #ffffff;
-    --bnh-surface-2: #fff0c7;
+    --bnh-surface-2: #efe7d6;
     --bnh-surface-3: #ffffff;
     --bnh-input: #ffffff;
-    --bnh-hover: #ffe7a0;
+    --bnh-hover: #ffe7a3;
     --bnh-border: var(--app-ink);
     --bnh-border-2: var(--app-ink);
     --bnh-border-strong: var(--app-ink);
-    --bnh-text: #111111;
+    --bnh-text: #000000;
     --bnh-text-dim: #3d3a35;
     --bnh-text-mute: #5e584f;
-    --bnh-accent: #5b3df5;
+    --bnh-accent: #000000;
     --bnh-violet: #5b3df5;
     --bnh-green: #0b7a3b;
     --bnh-amber: #a84a00;
     --bnh-blue: #1d4ed8;
     --bnh-red: #c81e1e;
     --bnh-orange: #c2410c;
-    --bnh-link: #111111;
-    --bnh-primary: #ffd23f;
-    --bnh-primary-hover: #ffc21a;
-    --bnh-primary-text: #111111;
+    --bnh-link: #000000;
+    --bnh-primary: #ffdc58;
+    --bnh-primary-hover: #ffd23a;
+    --bnh-primary-text: #000000;
   }
 
   /* Ink-dependent tokens are declared wherever the ink changes so they
      resolve against the active theme. */
   :root, .bnh-theme-dark, [data-bnh-theme="dark"], .bnh-theme-light, [data-bnh-theme="light"] {
-    --bnh-control-shadow: 3px 3px 0 var(--app-ink);
-    --bnh-raised-shadow: 5px 5px 0 var(--app-ink);
-    --bnh-menu-shadow: 4px 4px 0 var(--app-ink);
-    --bnh-glass-shadow: 4px 4px 0 var(--app-ink);
-    --bnh-popover-shadow: 8px 8px 0 var(--app-ink);
+    --bnh-control-shadow: 3px 3px 0 var(--app-shadow-ink);
+    --bnh-raised-shadow: 4px 4px 0 var(--app-shadow-ink);
+    --bnh-menu-shadow: 4px 4px 0 var(--app-shadow-ink);
+    --bnh-glass-shadow: 3px 3px 0 var(--app-shadow-ink);
+    --bnh-popover-shadow: 6px 6px 0 var(--app-shadow-ink);
     --bnh-popover-background: var(--bnh-bg-2);
     --bnh-frosted-background: var(--bnh-bg-2);
     --bnh-input-focus: var(--app-ink);
-    --bnh-input-focus-shadow: 4px 4px 0 var(--bnh-accent);
+    --bnh-input-focus-shadow: 3px 3px 0 var(--bnh-primary);
+    --bnh-input-focus-ring: var(--bnh-primary);
+    --bnh-focus-ring-color: var(--bnh-accent);
+    --app-shadow-sm: 2px 2px 0 var(--app-shadow-ink);
+    --app-shadow-md: 3px 3px 0 var(--app-shadow-ink);
+    --app-shadow-lg: 5px 5px 0 var(--app-shadow-ink);
   }
 }
 
@@ -137,7 +157,8 @@
   --color-text-faint: var(--bnh-text-mute);
   --color-accent-green: var(--bnh-green);
   --color-accent-amber: var(--bnh-amber);
-  --color-accent-purple: var(--bnh-accent);
+  --color-accent: var(--bnh-accent);
+  --color-accent-purple: var(--bnh-violet);
   --color-accent-blue: var(--bnh-blue);
   --color-accent-rose: var(--bnh-red);
   --color-primary: var(--bnh-primary);

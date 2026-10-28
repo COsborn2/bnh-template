@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
     return (
       <div className="flex flex-col gap-5 text-center">
         <div>
-          <h2 className="font-display text-2xl font-extrabold tracking-tight">
+          <h2 className="font-display text-2xl">
             Check your email
           </h2>
           <p className="mt-2 text-sm text-text-muted">
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="text-center">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight">
+        <h2 className="font-display text-2xl">
           Reset your password
         </h2>
         <p className="mt-1 text-sm text-text-muted">

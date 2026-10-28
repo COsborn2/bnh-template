@@ -3,10 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { UserRound } from "lucide-react";
 import { authClient, useSession } from "@/lib/auth-client";
 import type { SessionUser } from "@/lib/session-user";
 import { Button } from "@/components/ui/button";
 import { PageLoading } from "@/components/ui/page-loading";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { Surface } from "@/components/ui/surface";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -43,8 +45,10 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-4xl font-extrabold tracking-tight text-text">Dashboard</h1>
+      <div className="mb-12 flex flex-col gap-5">
+        <h1 className="font-display text-[clamp(40px,8vw,56px)] leading-[0.95] tracking-[-0.035em] text-text">
+          Your <span className="app-mark">dashboard</span>
+        </h1>
         <div className="flex flex-wrap items-center gap-3">
           <ThemeToggle />
           {user.role === "admin" && (
@@ -70,11 +74,10 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
         </div>
       </div>
 
+      <SectionHeading title="Your profile" icon={UserRound} fill="var(--app-fill-pink)" />
+
       <Surface className="p-8">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight text-text">
-          Your profile
-        </h2>
-        <p className="mt-2 text-sm text-text-muted">
+        <p className="text-sm text-text-muted">
           Auth is working. Start building your app from here.
         </p>
 

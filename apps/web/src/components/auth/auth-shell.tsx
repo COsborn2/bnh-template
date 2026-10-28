@@ -11,7 +11,7 @@ export function AuthShell({
     <div className="relative flex min-h-screen items-center justify-center p-4">
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="inline-block -rotate-2 rounded-[var(--radius-md)] border border-border bg-primary px-4 py-1 font-display text-3xl font-extrabold tracking-tight text-primary-text shadow-control">
+          <h1 className="inline-block -rotate-2 rounded-[var(--radius-md)] border border-border bg-primary px-4 py-1 font-display text-3xl normal-case text-primary-text shadow-control">
             {appName}
           </h1>
         </div>

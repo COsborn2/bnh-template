@@ -121,7 +121,7 @@ bun run db:migrate
 bun run dev
 ```
 
-`next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` (Next 16's agent rules) and both `next dev` and `next build` rewrite `apps/web/next-env.d.ts`. All three are committed so the tree stays clean; re-commit them when a Next upgrade changes their content. `next build` also downloads the DM Sans and Fraunces fonts from Google at build time (`next/font/google`) and self-hosts them, so an offline build fails at that step.
+`next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` (Next 16's agent rules) and both `next dev` and `next build` rewrite `apps/web/next-env.d.ts`. All three are committed so the tree stays clean; re-commit them when a Next upgrade changes their content. `next build` also downloads the Space Grotesk and Space Mono fonts from Google at build time (`next/font/google`) and self-hosts them, so an offline build fails at that step.
 
 Local dev URLs:
 
@@ -409,10 +409,11 @@ Import only the component entry and its CSS (`@cosborn2/ui/button` and `@cosborn
 
 The app restyles the shared components rather than forking them, so it doubles as an example of heavy customization:
 
-- `apps/web/src/app/theme.css` sets the `--bnh-*` tokens for the light and dark palettes, plus border width, radii, hard offset shadows, and no backdrop blur. Its `@theme inline` block maps the same tokens onto Tailwind utilities (`bg-bg-raised`, `shadow-raised`, `border` widths), so app markup and shared components stay in step.
+- `apps/web/src/app/theme.css` sets the `--bnh-*` tokens for the light and dark palettes in a neobrutalist style modelled on neobrutalism.com: cream paper, black ink rules, square panels, 4px controls, hard offset shadows, no backdrop blur, and one bright yellow for primary actions and selection. It also declares the `--app-*` ink, fill, and shadow tokens for app markup. Its `@theme inline` block maps the same tokens onto Tailwind utilities (`bg-bg-raised`, `bg-fill-pink`, `shadow-raised`, `border` widths), so app markup and shared components stay in step.
 - `apps/web/src/app/ui-overrides.css` restyles individual components through their documented `bnh-*` class names. It lives in an `overrides` cascade layer declared in `globals.css` (`theme, base, components, overrides, utilities`), which beats the package's `components` layer without extra specificity while per-instance Tailwind classes still win.
+- `apps/web/src/app/globals.css` makes every `font-display` heading bold and uppercase, and holds the app's own building blocks: `Tag` (`components/ui/tag.tsx`) for status labels, `SectionHeading` (`components/ui/section-heading.tsx`) for page sections, the `app-sticker` kicker, and the `app-mark` highlighter.
 
-Change the look by editing those two files.
+Change the look by editing those files.
 
 Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also creates an app, installs it from the template's lockfile, and validates it.
 

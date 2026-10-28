@@ -40,12 +40,23 @@ body {
   color: var(--color-primary-text);
 }
 
+/* Display type: bold, uppercase, tightly tracked grotesque (neobrutalism.com
+   headings). Applies to every `font-display` heading so callers don't each
+   repeat it; per-instance utilities (`normal-case`, `tracking-*`) still win. */
+@layer base {
+  .font-display {
+    font-weight: var(--bnh-font-display-weight);
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
+  }
+}
+
 /* Inline text links: ink text on a thick accent underline that fills in on hover. */
 @utility link-underline {
   font-weight: 700;
   color: var(--color-text);
   text-decoration-line: underline;
-  text-decoration-color: var(--color-accent-purple);
+  text-decoration-color: var(--color-accent);
   text-decoration-thickness: 3px;
   text-underline-offset: 3px;
   &:hover {
@@ -61,11 +72,123 @@ body {
 }
 .card-lift:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0 var(--color-ink);
+  box-shadow: 7px 7px 0 var(--app-shadow-ink);
 }
 @media (prefers-reduced-motion: reduce) {
   .card-lift:hover {
     transform: none;
+  }
+}
+
+/* App building blocks. They sit in the `components` layer, so per-instance
+   Tailwind utilities still win. */
+@layer components {
+  /* Highlighter block behind a word in a heading. */
+  .app-mark {
+    padding: 0 0.14em;
+    background: var(--color-primary);
+    color: var(--color-primary-text);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  /* Small square label (Tag in components/ui/tag.tsx): `data-tone` picks a
+     bright fill (dark text in both modes); untoned tags sit on the muted
+     surface. */
+  .app-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 7px;
+    flex-shrink: 0;
+    border: var(--app-rule-width) solid var(--app-ink);
+    border-radius: var(--bnh-radius-sm);
+    background: var(--bnh-surface-2);
+    color: var(--bnh-text);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .app-tag[data-tone] {
+    color: var(--app-on-fill);
+  }
+  .app-tag[data-tone="yellow"] { background: var(--app-fill-yellow); }
+  .app-tag[data-tone="green"] { background: var(--app-fill-green); }
+  .app-tag[data-tone="pink"] { background: var(--app-fill-pink); }
+  .app-tag[data-tone="blue"] { background: var(--app-fill-blue); }
+  .app-tag[data-tone="violet"] { background: var(--app-fill-violet); }
+  .app-tag[data-tone="orange"] { background: var(--app-fill-orange); }
+  .app-tag[data-tone="red"] { background: var(--app-fill-red); }
+
+  /* Tilted sticker label (page kickers). */
+  .app-sticker {
+    display: inline-block;
+    padding: 3px 10px;
+    border: var(--app-rule-width) solid var(--app-ink);
+    border-radius: var(--bnh-radius-sm);
+    background: var(--app-fill-pink);
+    color: var(--app-on-fill);
+    box-shadow: var(--app-shadow-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transform: rotate(-3deg);
+  }
+
+  /* Section heading (SectionHeading in components/ui/section-heading.tsx):
+     tilted icon tile, big uppercase title, inverse count badge, then a heavy
+     rule out to the section's actions. */
+  .app-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    min-width: 0;
+  }
+  .app-section-heading__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: var(--app-rule-width) solid var(--app-ink);
+    border-radius: var(--bnh-radius-sm);
+    color: var(--app-on-fill);
+    box-shadow: var(--app-shadow-md);
+    transform: rotate(-4deg);
+  }
+  .app-section-heading__title {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .app-section-heading__count {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 8px;
+    flex-shrink: 0;
+    border: var(--app-rule-width) solid var(--app-ink);
+    border-radius: var(--bnh-radius-sm);
+    background: var(--bnh-text);
+    color: var(--bnh-bg);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .app-section-heading__rule {
+    flex: 1;
+    min-width: 12px;
+    height: 3px;
+    background: var(--app-ink);
   }
 }
 
@@ -187,8 +310,8 @@ html {
 }
 
 @keyframes timer-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0); }
-  50% { box-shadow: 0 0 12px 4px rgba(251, 113, 133, 0.3); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--app-fill-red); }
+  50% { box-shadow: 0 0 0 4px var(--app-fill-red); }
 }
 .animate-timer-pulse {
   animation: timer-pulse 1s ease-in-out infinite;
@@ -243,10 +366,10 @@ html {
 .page-loading-pulse {
   width: 28px;
   height: 28px;
-  border: var(--bnh-border-width) solid var(--color-ink);
+  border: var(--app-rule-width) solid var(--color-ink);
   border-radius: var(--bnh-radius-sm);
   background: var(--color-primary);
-  box-shadow: var(--bnh-control-shadow);
+  box-shadow: var(--app-shadow-md);
   opacity: 0;
   animation:
     loading-appear 0.2s ease-out 0.25s forwards,
@@ -256,8 +379,8 @@ html {
   to { opacity: 1; }
 }
 @keyframes loading-hop {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); box-shadow: 3px 3px 0 var(--color-ink); }
-  50% { transform: translate(-2px, -10px) rotate(-8deg); box-shadow: 6px 13px 0 var(--color-ink); }
+  0%, 100% { transform: translate(0, 0) rotate(0deg); box-shadow: 3px 3px 0 var(--app-shadow-ink); }
+  50% { transform: translate(-2px, -10px) rotate(-8deg); box-shadow: 6px 13px 0 var(--app-shadow-ink); }
 }
 @media (prefers-reduced-motion: reduce) {
   .page-loading-pulse {

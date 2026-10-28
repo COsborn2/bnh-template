@@ -49,7 +49,7 @@ export function GoogleSignInButton({
       className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-3 rounded-[var(--radius-md)] transition-colors hover:bg-[#1f1f20]"
       style={{
         backgroundColor: "#131314",
-        border: "1px solid #8E918F",
+        border: "2px solid #8E918F",
         fontFamily: "'Roboto', sans-serif",
         fontWeight: 500,
         fontSize: "14px",

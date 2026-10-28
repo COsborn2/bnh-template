@@ -41,7 +41,7 @@ export default function AdminLayout({
   ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
-        <h1 className="font-display text-4xl font-extrabold tracking-tight text-text">
+        <h1 className="font-display text-4xl text-text">
           404 — Page not found
         </h1>
         <Link href="/" className="mt-4 text-sm link-underline">

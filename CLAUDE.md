@@ -45,9 +45,15 @@ by environment variables.
   (https://github.com/COsborn2/ui), published as `@cosborn2/ui`. Use the local UI
   adapters; import each component and its CSS entry. Keep auth/state/network
   policy in the app. Package releases are managed in the standalone UI repository.
-- The web app's look lives in `apps/web/src/app/theme.css` (`--bnh-*` tokens + Tailwind
-  mapping) and `ui-overrides.css` (component restyling in the `overrides` layer). Restyle
-  shared components there by class name instead of wrapping or forking them; prefer the
-  shared `Surface` adapter over hand-rolled card markup.
+- The web app's neobrutalist look (modelled on neobrutalism.com) lives in
+  `apps/web/src/app/theme.css` (`--bnh-*` tokens, `--app-*` ink/fill/shadow tokens,
+  Tailwind mapping) and `ui-overrides.css` (component restyling in the `overrides`
+  layer). Restyle shared components there by class name instead of wrapping or forking
+  them; prefer the shared `Surface` adapter over hand-rolled card markup, and the local
+  `Tag` and `SectionHeading` (`app-*` classes in `globals.css`) over one-off badges and
+  section titles. `font-display` headings are bold and uppercase without extra classes.
+  In markup and inline styles use ink rules (`border border-ink`, `2px solid
+  var(--app-ink)`), hard `var(--app-shadow-*)` shadows (never blur or soft drop
+  shadows), square panels, 4px controls, and `var(--bnh-radius-pill)` instead of `999`.
 - `next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` and rewrites
   `apps/web/next-env.d.ts`; all three are committed on purpose.
