@@ -15,6 +15,7 @@ import { useWebSocket, type WebSocketStatus } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Surface } from "@/components/ui/surface";
+import { Tag, type TagTone } from "@/components/ui/tag";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PresenceUser } from "@app/shared";
 
@@ -35,11 +36,11 @@ const STATUS_LABEL: Record<WebSocketStatus, string> = {
   offline: "Offline",
 };
 
-const STATUS_CLASS: Record<WebSocketStatus, string> = {
-  connecting: "bg-fill-yellow",
-  connected: "bg-fill-green",
-  reconnecting: "bg-fill-orange",
-  offline: "bg-fill-red",
+const STATUS_TONE: Record<WebSocketStatus, TagTone> = {
+  connecting: "yellow",
+  connected: "green",
+  reconnecting: "orange",
+  offline: "red",
 };
 
 export function ChatPage() {
@@ -124,15 +125,11 @@ export function ChatPage() {
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-4 py-6 md:py-8">
       <Surface className="mb-5 flex flex-col gap-4 p-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight text-text">
+          <h1 className="font-display text-2xl text-text">
             Lobby Chat
           </h1>
           <p className="mt-2 flex items-center gap-2 text-sm text-text-muted">
-            <span
-              className={`rounded-[var(--radius-sm)] border border-border px-1.5 py-0.5 font-mono text-xs font-bold uppercase text-on-fill ${STATUS_CLASS[status]}`}
-            >
-              {STATUS_LABEL[status]}
-            </span>
+            <Tag tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Tag>
             <span className="font-mono">#{TOPIC.split(":")[1]}</span>
           </p>
           {onlineUsers.length > 0 && (

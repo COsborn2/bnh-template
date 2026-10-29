@@ -160,7 +160,7 @@ function VerifyEmailContent() {
     if (status === "verifying") {
       return (
         <div className="flex flex-col gap-5 text-center">
-          <h2 className="font-display text-2xl font-extrabold tracking-tight">
+          <h2 className="font-display text-2xl">
             Verifying your email
           </h2>
           <p className="text-sm text-text-muted">Please wait...</p>
@@ -171,7 +171,7 @@ function VerifyEmailContent() {
     if (status === "success") {
       return (
         <div className="flex flex-col gap-5 text-center">
-          <h2 className="font-display text-2xl font-extrabold tracking-tight">
+          <h2 className="font-display text-2xl">
             Email verified
           </h2>
           <p className="text-sm text-text-muted">
@@ -189,7 +189,7 @@ function VerifyEmailContent() {
 
     return (
       <div className="flex flex-col gap-5 text-center">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight">
+        <h2 className="font-display text-2xl">
           Verification failed
         </h2>
         <p className="text-sm text-text-muted">
@@ -211,7 +211,7 @@ function VerifyEmailContent() {
   return (
     <div className="flex flex-col gap-5 text-center">
       <div>
-        <h2 className="font-display text-2xl font-extrabold tracking-tight">
+        <h2 className="font-display text-2xl">
           Check your email
         </h2>
         <p className="mt-2 text-sm text-text-muted">

@@ -24,7 +24,7 @@ export function AdminSidebar({ items }: AdminSidebarProps) {
 
   return (
     <aside className="flex min-h-screen w-60 flex-col border-r border-border bg-bg-raised p-4">
-      <h2 className="mb-5 inline-block self-start -rotate-2 rounded-[var(--radius-sm)] border border-border bg-fill-violet px-2.5 py-0.5 font-display text-lg font-extrabold tracking-tight text-on-fill shadow-control">
+      <h2 className="mb-5 inline-block self-start -rotate-2 rounded-[var(--radius-sm)] border border-border bg-fill-violet px-2.5 py-0.5 font-display text-lg text-on-fill shadow-control">
         Admin
       </h2>
       <nav className="flex flex-col gap-1.5">

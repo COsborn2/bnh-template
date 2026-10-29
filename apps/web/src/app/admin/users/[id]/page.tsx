@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toaster";
 import { Notice } from "@/components/ui/notice";
 import { Surface } from "@/components/ui/surface";
+import { Tag } from "@/components/ui/tag";
 import { Ban, Check, UserRoundCog, Trash2, LogOut, Shield } from "lucide-react";
 
 interface AdminUser {
@@ -391,7 +392,7 @@ export default function UserDetailPage() {
   if (userError || !user) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-text">
+        <h1 className="font-display text-2xl text-text">
           User not found
         </h1>
         <Link
@@ -418,14 +419,14 @@ export default function UserDetailPage() {
         >
           &larr; Back to users
         </Link>
-        <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-text">
+        <h1 className="mt-2 font-display text-2xl text-text">
           {user.name ?? "Unnamed User"}
         </h1>
       </div>
 
       {/* 1. User Info Card */}
       <Surface className="space-y-3 p-6">
-        <h2 className="font-display text-lg font-extrabold tracking-tight text-text">
+        <h2 className="font-display text-lg text-text">
           User Info
         </h2>
 
@@ -441,13 +442,13 @@ export default function UserDetailPage() {
             <span className="text-text">
               {user.email}
               {user.emailVerified ? (
-                <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-fill-green px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-on-fill">
+                <Tag tone="green" className="ml-2">
                   verified
-                </span>
+                </Tag>
               ) : (
-                <span className="ml-2 rounded-[var(--radius-sm)] border border-border bg-bg-hover px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase text-text">
+                <Tag className="ml-2">
                   unverified
-                </span>
+                </Tag>
               )}
             </span>
           </div>
@@ -496,7 +497,7 @@ export default function UserDetailPage() {
 
       {/* 2. Actions Card */}
       <Surface className="space-y-6 p-6">
-        <h2 className="font-display text-lg font-extrabold tracking-tight text-text">
+        <h2 className="font-display text-lg text-text">
           Actions
         </h2>
 
@@ -618,7 +619,7 @@ export default function UserDetailPage() {
 
       {/* 3. Sessions Table */}
       <Surface className="space-y-4 p-6">
-        <h2 className="font-display text-lg font-extrabold tracking-tight text-text">
+        <h2 className="font-display text-lg text-text">
           Sessions
         </h2>
         <DataTable

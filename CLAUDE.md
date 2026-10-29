@@ -28,10 +28,12 @@ by environment variables.
   workspace). CI runs the root command, so all workspaces must typecheck.
 - Tests: `bun test` inside a workspace; root `bun run test` = `turbo test`. The API
   suites in `apps/api/src/__tests__` need a real Postgres + Redis (`DATABASE_URL`,
-  `REDIS_URL`); `bun run test:integration` provisions disposable dockerized ones. Web
-  component tests are colocated `*.test.tsx` files using `renderToString`. bun's
-  `mock.module` is process-global across test files — import `./x.js?real` to bypass a
-  leaked mock.
+  `REDIS_URL`); `bun run test:integration` provisions disposable dockerized ones. They
+  never use the network: `apps/api/src/__tests__/network-fakes.ts` (installed by the
+  test preload) fakes DNS MX lookups and Have I Been Pwned and fails any other
+  non-local request, so fake each new third-party call there. Web component tests are
+  colocated `*.test.tsx` files using `renderToString`. bun's `mock.module` is
+  process-global across test files — import `./x.js?real` to bypass a leaked mock.
 - Migrations: edit `packages/db/src/schema.ts`, then root `bun run db:generate` and
   `bun run db:migrate`. Never hand-write migration SQL; never rewrite a published
   migration (`apps/migrate/src/migrations.test.ts` pins them).
@@ -45,9 +47,15 @@ by environment variables.
   (https://github.com/COsborn2/ui), published as `@cosborn2/ui`. Use the local UI
   adapters; import each component and its CSS entry. Keep auth/state/network
   policy in the app. Package releases are managed in the standalone UI repository.
-- The web app's look lives in `apps/web/src/app/theme.css` (`--bnh-*` tokens + Tailwind
-  mapping) and `ui-overrides.css` (component restyling in the `overrides` layer). Restyle
-  shared components there by class name instead of wrapping or forking them; prefer the
-  shared `Surface` adapter over hand-rolled card markup.
+- The web app's neobrutalist look (modelled on neobrutalism.com) lives in
+  `apps/web/src/app/theme.css` (`--bnh-*` tokens, `--app-*` ink/fill/shadow tokens,
+  Tailwind mapping) and `ui-overrides.css` (component restyling in the `overrides`
+  layer). Restyle shared components there by class name instead of wrapping or forking
+  them; prefer the shared `Surface` adapter over hand-rolled card markup, and the local
+  `Tag` and `SectionHeading` (`app-*` classes in `globals.css`) over one-off badges and
+  section titles. `font-display` headings are bold and uppercase without extra classes.
+  In markup and inline styles use ink rules (`border border-ink`, `2px solid
+  var(--app-ink)`), hard `var(--app-shadow-*)` shadows (never blur or soft drop
+  shadows), square panels, 4px controls, and `var(--bnh-radius-pill)` instead of `999`.
 - `next dev` writes `apps/web/AGENTS.md` and `apps/web/CLAUDE.md` and rewrites
   `apps/web/next-env.d.ts`; all three are committed on purpose.

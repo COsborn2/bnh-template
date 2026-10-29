@@ -77,7 +77,7 @@ export default function RegisterPage() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="text-center">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight">
+        <h2 className="font-display text-2xl">
           Create an account
         </h2>
         <p className="mt-1 text-sm text-text-muted">

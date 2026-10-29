@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Space_Grotesk, Space_Mono } from "next/font/google";
+import { Space_Grotesk, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE_URL, SITE_URL_IS_CONFIGURED } from "@/lib/site";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -10,7 +10,6 @@ import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 // from /_next/static, so no runtime request goes to Google Fonts. The CSS
 // variables are mapped onto the shared UI and Tailwind font tokens in theme.css.
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grotesk", display: "swap" });
-const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "swap" });
 const spaceMono = Space_Mono({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-space-mono", display: "swap" });
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "MyApp";
@@ -52,11 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${spaceGrotesk.variable} ${bricolage.variable} ${spaceMono.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="en" className={`${spaceGrotesk.variable} ${spaceMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

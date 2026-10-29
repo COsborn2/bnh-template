@@ -11,7 +11,8 @@ describe("Security features", () => {
   // ------------------------------------------------------------------
   describe("HIBP: compromised password rejection", () => {
     test("known compromised password is rejected on sign-up", async () => {
-      // "password123" is one of the most common breached passwords
+      // "password123" is on the fake Pwned Passwords range API's breached
+      // list (network-fakes.ts); the plugin hashes and looks it up for real.
       const email = uniqueEmail("hibp");
       const res = await postJSON("/sign-up/email", {
         name: "HIBP Test",
@@ -19,17 +20,10 @@ describe("Security features", () => {
         password: "password123",
       });
 
-      // The HIBP plugin checks the password against the Pwned Passwords API
-      // and should reject known compromised passwords with an error
-      expect(res.status).not.toBe(200);
+      expect(res.status).toBe(400);
       const body = await res.json();
-      // The error message/code should indicate the password is compromised
-      if (body.message) {
-        expect(body.message.toLowerCase()).toContain("compromised");
-      }
-      if (body.code) {
-        expect(body.code).toBe("PASSWORD_COMPROMISED");
-      }
+      expect(body.code).toBe("PASSWORD_COMPROMISED");
+      expect(body.message.toLowerCase()).toContain("compromised");
     });
 
     test("strong unique password is accepted", async () => {
@@ -58,11 +52,9 @@ describe("Security features", () => {
       });
 
       // The email validation hook should reject this
-      expect(res.status).not.toBe(200);
+      expect(res.status).toBe(400);
       const body = await res.json();
-      if (body.message) {
-        expect(body.message.toLowerCase()).toContain("disposable");
-      }
+      expect(body.message.toLowerCase()).toContain("disposable");
     });
 
     test("registration with guerrillamail is rejected", async () => {
@@ -72,7 +64,20 @@ describe("Security features", () => {
         password: "Str0ng!Pass#2025",
       });
 
-      expect(res.status).not.toBe(200);
+      expect(res.status).toBe(400);
+    });
+
+    test("registration with a domain that has no mail server is rejected", async () => {
+      // The fake resolver answers ENOTFOUND for the reserved .invalid TLD.
+      const res = await postJSON("/sign-up/email", {
+        name: "No MX Test",
+        email: uniqueEmail("no-mx").replace("@example.com", "@nowhere.invalid"),
+        password: "Str0ng!Pass#2025",
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.message).toContain("couldn't verify this email domain");
     });
 
     test("registration with legitimate email domain is accepted", async () => {

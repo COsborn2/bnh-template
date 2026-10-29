@@ -71,7 +71,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="text-center">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight">Welcome back</h2>
+        <h2 className="font-display text-2xl">Welcome back</h2>
         <p className="mt-1 text-sm text-text-muted">Sign in to your account</p>
       </div>
 
@@ -97,7 +97,7 @@ export function LoginForm() {
       <div className="-mt-1 flex justify-end">
         <Link
           href="/auth/forgot-password"
-          className="text-xs text-text-muted transition-colors hover:text-accent-purple"
+          className="text-xs text-text-muted transition-colors hover:text-text"
         >
           Forgot password?
         </Link>
