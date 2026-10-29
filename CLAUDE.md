@@ -28,10 +28,12 @@ by environment variables.
   workspace). CI runs the root command, so all workspaces must typecheck.
 - Tests: `bun test` inside a workspace; root `bun run test` = `turbo test`. The API
   suites in `apps/api/src/__tests__` need a real Postgres + Redis (`DATABASE_URL`,
-  `REDIS_URL`); `bun run test:integration` provisions disposable dockerized ones. Web
-  component tests are colocated `*.test.tsx` files using `renderToString`. bun's
-  `mock.module` is process-global across test files — import `./x.js?real` to bypass a
-  leaked mock.
+  `REDIS_URL`); `bun run test:integration` provisions disposable dockerized ones. They
+  never use the network: `apps/api/src/__tests__/network-fakes.ts` (installed by the
+  test preload) fakes DNS MX lookups and Have I Been Pwned and fails any other
+  non-local request, so fake each new third-party call there. Web component tests are
+  colocated `*.test.tsx` files using `renderToString`. bun's `mock.module` is
+  process-global across test files — import `./x.js?real` to bypass a leaked mock.
 - Migrations: edit `packages/db/src/schema.ts`, then root `bun run db:generate` and
   `bun run db:migrate`. Never hand-write migration SQL; never rewrite a published
   migration (`apps/migrate/src/migrations.test.ts` pins them).

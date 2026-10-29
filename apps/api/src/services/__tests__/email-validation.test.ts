@@ -1,12 +1,8 @@
-import { beforeAll, beforeEach, describe, expect, it, mock } from "bun:test";
-
-const resolveMxMock = mock<
-  (domain: string) => Promise<{ exchange: string; priority: number }[]>
->(() => Promise.resolve([{ exchange: "mail.example.com", priority: 10 }]));
-
-mock.module("node:dns/promises", () => ({
-  resolveMx: resolveMxMock,
-}));
+import { beforeAll, beforeEach, describe, expect, it } from "bun:test";
+// test-preload.ts already routes node:dns/promises through this shared mock;
+// overriding it per test (instead of a second mock.module) keeps the fake in
+// place for the test files that run after this one.
+import { defaultResolveMx, resolveMxMock } from "../../__tests__/network-fakes.js";
 
 import {
   emailDomain,
@@ -22,9 +18,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   resolveMxMock.mockReset();
-  resolveMxMock.mockImplementation(() =>
-    Promise.resolve([{ exchange: "mail.example.com", priority: 10 }]),
-  );
+  resolveMxMock.mockImplementation(defaultResolveMx);
 });
 
 describe("emailDomain", () => {

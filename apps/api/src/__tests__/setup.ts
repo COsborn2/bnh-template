@@ -4,7 +4,9 @@
  * Creates a test-oriented Hono app that:
  *  - Uses the real database (requires DATABASE_URL)
  *  - Disables captcha (would need external Turnstile verification)
- *  - Keeps all other plugins (admin, username, HIBP, testUtils)
+ *  - Keeps all other plugins (admin, username, HIBP, testUtils); the Have I
+ *    Been Pwned API and the sign-up hook's MX lookup are faked for every test
+ *    file by network-fakes.ts (installed from src/test-preload.ts)
  *  - Disables rate limiting so tests don't interfere with each other
  *  - Initialises the disposable-email blocklist
  */

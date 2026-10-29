@@ -224,7 +224,7 @@ bun run --filter=@app/ws dev
 
 - `bun test` inside a workspace runs that workspace alone. Web component tests are colocated `*.test.tsx` files that render with `renderToString` from `react-dom/server` (no DOM); `apps/web/src/test/` holds the shared helpers (`fetch-mock.ts`, `router-stub.tsx`).
 - bun's `mock.module` registrations are process-global across every test file in a run (for example `apps/api/src/lib/rate-limits.test.ts` stubs `./redis.js`). A suite that must load the real module imports it as `./module.js?real` and casts to `typeof import("./module.js")` — see `apps/api/src/types/query-specifier-imports.d.ts`.
-- The API suites (`apps/api/src/__tests__`) hit the real database and Redis; `bun run test:integration` is the zero-setup way to run them locally.
+- The API suites (`apps/api/src/__tests__`) hit the real database and Redis; `bun run test:integration` is the zero-setup way to run them locally. They never need outbound network: `apps/api/src/test-preload.ts` installs `src/__tests__/network-fakes.ts`, which fakes the DNS MX lookup and the Have I Been Pwned range API and fails any other request to a non-local host. Fake a new third-party integration there.
 
 ## Health Checks
 
