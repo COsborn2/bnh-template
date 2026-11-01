@@ -190,6 +190,39 @@ body {
     height: 3px;
     background: var(--app-ink);
   }
+
+  /* Hand-rolled fields (a textarea, or an input wrapped with an icon or
+     chips) focus like the shared Input: ink border, a 1px lift and the hard
+     yellow shadow. Put `app-field` on whatever draws the field's border: the
+     input or textarea itself, or the wrapper around a bare input;
+     `:focus-within` covers both. A field marked `aria-invalid` (or wrapping
+     one) gets a red shadow instead. Inline styles and shadow or transition
+     utilities on the same element override it. */
+  .app-field {
+    transition:
+      border-color 150ms,
+      background-color 150ms,
+      box-shadow 150ms,
+      transform 150ms;
+  }
+  .app-field:focus-within {
+    border-color: var(--bnh-input-focus);
+    outline: none;
+    box-shadow: var(--bnh-input-focus-shadow);
+    transform: translate(-1px, -1px);
+  }
+  .app-field:is([aria-invalid="true"], :has([aria-invalid="true"])):focus-within {
+    border-color: var(--bnh-red);
+    box-shadow: 4px 4px 0 var(--bnh-red);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-field {
+      transition: none;
+    }
+    .app-field:focus-within {
+      transform: none;
+    }
+  }
 }
 
 /* Browsers paint their own error styling the moment a `required` field goes

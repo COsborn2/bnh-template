@@ -53,7 +53,11 @@ by environment variables.
   layer). Restyle shared components there by class name instead of wrapping or forking
   them; prefer the shared `Surface` adapter over hand-rolled card markup, and the local
   `Tag` and `SectionHeading` (`app-*` classes in `globals.css`) over one-off badges and
-  section titles. `font-display` headings are bold and uppercase without extra classes.
+  section titles. Use the `Input` and `Select` adapters for fields; a field they can't
+  express (a textarea, an input wrapped with an icon or chips) takes `app-field` on
+  the element that draws its border so it focuses like `Input`, with no inline
+  box-shadow, transform or transition. `font-display` headings are bold and uppercase
+  without extra classes.
   In markup and inline styles use ink rules (`border border-ink`, `2px solid
   var(--app-ink)`), hard `var(--app-shadow-*)` shadows (never blur or soft drop
   shadows), square panels, 4px controls, and `var(--bnh-radius-pill)` instead of `999`.
