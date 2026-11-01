@@ -57,20 +57,51 @@ describe("email templates", () => {
         expect(html).toContain(text);
       }
 
-      // 8-digit hex (alpha) borders render as no border / the wrong colour in
-      // Outlook and several webmail clients — the warning panel must use the
-      // opaque token instead.
-      expect(html).not.toContain("#fb718533");
+      // Alpha colours (8-digit hex, rgba) render as no colour / the wrong
+      // colour in Outlook and several webmail clients — every colour is opaque.
+      expect(html).not.toMatch(/#[0-9a-f]{8}\b/i);
+      expect(html).not.toMatch(/rgba?\(/i);
+      // Warnings are the app's danger notice: red fill, ink rule.
       if (warning) {
-        expect(html).toContain(emailColors.warningBorder);
-        expect(html).toContain(emailColors.warningText);
+        expect(html).toContain(`background-color:${emailColors.danger}`);
       }
+    });
+
+    test(`${name} keeps the app's neobrutalist rules`, async () => {
+      const html = await render(element);
+
+      // Hard offset shadows only: a non-zero third length is a blur.
+      const shadows = [...html.matchAll(/box-shadow:([^;"]+)/g)].map((m) => m[1]);
+      expect(shadows.length).toBeGreaterThan(0);
+      for (const shadow of shadows) {
+        expect(shadow).toMatch(/^\d+px \d+px 0 #000000$/);
+      }
+      // Square panels and 4px controls — nothing rounder.
+      for (const [, px] of html.matchAll(/border-radius:(\d+)px/g)) {
+        expect(Number(px)).toBeLessThanOrEqual(4);
+      }
+      expect(html).toContain(`border:2px solid ${emailColors.ink}`);
     });
   }
 
+  /** The style attribute of the CTA link (the logo also uses the yellow fill,
+   *  so a whole-document search can't tell which fill the button has). */
+  function buttonStyle(html: string): string {
+    const tag = html.match(/<a\b[^>]*token=example-token[^>]*>/)?.[0] ?? "";
+    return tag.match(/style="([^"]*)"/)?.[1] ?? "";
+  }
+
+  test("CTA buttons use the yellow primary with ink text", async () => {
+    const style = buttonStyle(await render(<VerificationEmail url={url} />));
+    expect(style).toContain(`background-color:${emailColors.primary}`);
+    expect(style).toContain(`color:${emailColors.ink}`);
+  });
+
   test("delete-account uses the destructive button, not the primary one", async () => {
-    const html = await render(<DeleteAccountVerificationEmail url={url} />);
-    expect(html).toContain("background-color:#fb7185");
-    expect(html).not.toContain(`background-color:${emailColors.accent}`);
+    const style = buttonStyle(
+      await render(<DeleteAccountVerificationEmail url={url} />),
+    );
+    expect(style).toContain(`background-color:${emailColors.danger}`);
+    expect(style).not.toContain(`background-color:${emailColors.primary}`);
   });
 });

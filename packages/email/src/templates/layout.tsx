@@ -1,19 +1,20 @@
 import {
   Body,
   Container,
-  Font,
   Head,
   Html,
   Preview,
   Section,
   Text,
-  Hr,
-  Row,
-  Column,
 } from "@react-email/components";
 import type { CSSProperties, ReactNode } from "react";
 
 const APP_NAME = process.env.APP_NAME || "MyApp";
+
+// The app's typefaces. Clients that load web fonts (Apple Mail, iOS Mail)
+// get Space Grotesk / Space Mono; the rest fall back to the system stack.
+const FONT_STYLESHEET =
+  "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Space+Mono:wght@700&display=swap";
 
 interface LayoutProps {
   preview: string;
@@ -24,38 +25,25 @@ export function Layout({ preview, children }: LayoutProps) {
   return (
     <Html>
       <Head>
-        <Font
-          fontFamily="Fraunces"
-          fallbackFontFamily="Georgia"
-          webFont={{
-            url: "https://fonts.gstatic.com/s/fraunces/v31/6NUh8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nBEsQMo5m1.woff2",
-            format: "woff2",
-          }}
-          fontWeight={700}
-          fontStyle="normal"
-        />
+        {/* Light-only: keeps Apple Mail from auto-darkening the cream paper
+            and yellow fills into something that no longer reads as the app. */}
+        <meta name="color-scheme" content="light" />
+        <meta name="supported-color-schemes" content="light" />
+        <link rel="stylesheet" href={FONT_STYLESHEET} />
       </Head>
       <Preview>{preview}</Preview>
       <Body style={body}>
         <Container style={container}>
-          {/* Header with logo */}
+          {/* The app name on a tilted yellow block, as on the auth pages. */}
           <Section style={header}>
-            <Row>
-              <Column>
-                <Text style={logo}>{APP_NAME}</Text>
-              </Column>
-            </Row>
+            <Text style={logoWrap}>
+              <span style={logo}>{APP_NAME}</span>
+            </Text>
           </Section>
 
-          {/* Decorative accent bar */}
-          <Section style={accentBar} />
-
-          {/* Content card */}
           <Section style={content}>{children}</Section>
 
-          {/* Footer */}
           <Section style={footer}>
-            <Hr style={hr} />
             <Text style={footerText}>
               &copy; {new Date().getFullYear()} {APP_NAME}
             </Text>
@@ -67,44 +55,63 @@ export function Layout({ preview, children }: LayoutProps) {
   );
 }
 
-// --- Theme colors (from app design system) ---
+// --- Theme colors (the web app's light neobrutalist palette) ---
 //
+// Mirrors apps/web/src/app/theme.css: cream paper, white cards, black ink for
+// rules, shadows and text, and the yellow primary / red fill for actions.
 // Every colour is opaque on purpose: email clients (Outlook, several webmail
-// apps) render 8-digit hex / rgba borders as no border or the wrong colour,
-// so "translucent" accents are pre-blended against the surface they sit on.
+// apps) render 8-digit hex / rgba as no colour or the wrong colour.
 export const emailColors = {
-  bg: "#0f0f0f",
-  bgRaised: "#1a1a1a",
-  bgPanel: "#222222",
-  border: "#333333",
-  borderSubtle: "#2a2a2a",
-  text: "#f0ebe3",
-  textMuted: "#9a9389",
-  textFaint: "#6b655c",
-  primary: "#e8d5b5",
-  accent: "#a78bfa",
-  accentGreen: "#22c55e",
-  warningBg: "#2a2020",
-  warningBorder: "#5a2a34",
-  warningText: "#ff9daf",
+  /** --bnh-bg: cream page background. */
+  bg: "#fff7e8",
+  /** --bnh-surface: the content card. */
+  surface: "#ffffff",
+  /** --bnh-surface-2: inset data panels. */
+  surfaceAlt: "#efe7d6",
+  /** --app-ink: rules, hard shadows, and text on bright fills. */
+  ink: "#000000",
+  text: "#000000",
+  /** --bnh-text-dim: body copy. */
+  textDim: "#3d3a35",
+  /** --bnh-text-mute: footnotes and the footer. */
+  textMute: "#5e584f",
+  /** --bnh-primary: primary buttons and the wordmark block. */
+  primary: "#ffdc58",
+  /** --app-fill-red: destructive buttons and warning notices. */
+  danger: "#ff8f8f",
 };
+
+const fontSans =
+  '"Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const fontMono =
+  '"Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+
+/** 2px solid ink: the app's rule on every panel and control. */
+const rule = `2px solid ${emailColors.ink}`;
+
+// Hard offset shadows, never blurred (--bnh-control-shadow / --bnh-raised-shadow).
+// Outlook for Windows ignores box-shadow, which leaves the 2px rule on its own.
+const controlShadow = `3px 3px 0 ${emailColors.ink}`;
+const raisedShadow = `4px 4px 0 ${emailColors.ink}`;
 
 // The buttons are declared outside `emailStyles` so `dangerButton` can derive
 // from `primaryButton` (a sibling key is not in scope while the object literal
 // is still being built) and so both carry a nameable `CSSProperties` type —
 // an inline spread would make the exported type expand every csstype member,
 // which the declaration emitter refuses as non-portable.
-// The explicit border and lineHeight keep the button's box size stable across
-// clients (some add a default border, some size the link by line box).
+// The explicit lineHeight keeps the button's box size stable across clients
+// (some size the link by line box). Bright fills always carry black text.
 const primaryButton: CSSProperties = {
-  backgroundColor: emailColors.accent,
-  border: `1px solid ${emailColors.accent}`,
-  borderRadius: "8px",
-  color: "#ffffff",
+  backgroundColor: emailColors.primary,
+  border: rule,
+  borderRadius: "4px",
+  boxShadow: controlShadow,
+  color: emailColors.ink,
+  fontFamily: fontSans,
   fontSize: "15px",
-  fontWeight: "600",
+  fontWeight: "700",
   lineHeight: "18px",
-  padding: "14px 32px",
+  padding: "12px 24px",
   textAlign: "center",
   textDecoration: "none",
 };
@@ -112,28 +119,31 @@ const primaryButton: CSSProperties = {
 /** Destructive actions (account deletion). */
 const dangerButton: CSSProperties = {
   ...primaryButton,
-  backgroundColor: "#fb7185",
-  border: "1px solid #fb7185",
+  backgroundColor: emailColors.danger,
 };
 
 /** Shared styles for template content. Templates should consume these rather
  *  than re-declaring their own constants so the emails stay visually
  *  consistent and a design change lands in one place. */
 export const emailStyles = {
+  // The app's `font-display` headings: bold, uppercase, tightly tracked.
   heading: {
     color: emailColors.text,
-    fontSize: "22px",
+    fontSize: "24px",
     fontWeight: "700",
+    lineHeight: "30px",
+    letterSpacing: "-0.5px",
     margin: "0 0 16px",
+    textTransform: "uppercase",
   },
   paragraph: {
-    color: emailColors.textMuted,
+    color: emailColors.textDim,
     fontSize: "15px",
     lineHeight: "24px",
     margin: "0 0 28px",
   },
   paragraphTight: {
-    color: emailColors.textMuted,
+    color: emailColors.textDim,
     fontSize: "15px",
     lineHeight: "24px",
     margin: "0 0 16px",
@@ -146,36 +156,37 @@ export const emailStyles = {
   // `Text` defaults to `margin: 16px 0`, so set every side — a bare marginTop
   // would leave a stray bottom margin under the last line of the card.
   footnote: {
-    color: emailColors.textFaint,
+    color: emailColors.textMute,
     fontSize: "13px",
     lineHeight: "20px",
     margin: "28px 0 0",
   },
   dataPanel: {
-    backgroundColor: emailColors.bgPanel,
-    border: `1px solid ${emailColors.border}`,
-    borderRadius: "8px",
-    padding: "14px 16px",
+    backgroundColor: emailColors.surfaceAlt,
+    border: rule,
+    borderRadius: "0",
+    padding: "12px 14px",
   },
   dataText: {
-    color: emailColors.primary,
-    fontFamily:
-      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+    color: emailColors.ink,
+    fontFamily: fontMono,
     fontSize: "15px",
     fontWeight: "700",
     lineHeight: "22px",
     margin: "0",
     wordBreak: "break-word",
   },
+  /** The app's danger notice: red fill, ink rule, ink text. */
   warningPanel: {
-    backgroundColor: emailColors.warningBg,
-    border: `1px solid ${emailColors.warningBorder}`,
-    borderRadius: "8px",
-    padding: "16px",
+    backgroundColor: emailColors.danger,
+    border: rule,
+    borderRadius: "0",
+    padding: "12px 14px",
   },
   warningText: {
-    color: emailColors.warningText,
+    color: emailColors.ink,
     fontSize: "13px",
+    fontWeight: "700",
     lineHeight: "20px",
     margin: "0",
   },
@@ -183,59 +194,58 @@ export const emailStyles = {
 
 const body: CSSProperties = {
   backgroundColor: emailColors.bg,
-  fontFamily:
-    '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  color: emailColors.text,
+  fontFamily: fontSans,
   margin: "0",
   padding: "0",
 };
 
 const container: CSSProperties = {
   margin: "0 auto",
-  padding: "40px 16px",
   maxWidth: "520px",
+  padding: "40px 16px 32px",
 };
 
 const header: CSSProperties = {
-  padding: "0 0 20px",
+  margin: "0 0 24px",
 };
 
-const logo: CSSProperties = {
-  fontFamily: '"Fraunces", Georgia, serif',
-  color: emailColors.primary,
-  fontSize: "28px",
-  fontWeight: "700",
+const logoWrap: CSSProperties = {
   margin: "0",
-  letterSpacing: "-0.5px",
+  textAlign: "center",
 };
 
-const accentBar: CSSProperties = {
-  background: `linear-gradient(90deg, ${emailColors.accent}, ${emailColors.accentGreen})`,
-  height: "3px",
-  borderRadius: "3px",
+/** The auth pages' wordmark: yellow block, ink rule, 4px corners, hard
+ *  shadow, tilted -2deg. Clients without `transform` show it level. */
+const logo: CSSProperties = {
+  backgroundColor: emailColors.primary,
+  border: rule,
+  borderRadius: "4px",
+  boxShadow: controlShadow,
+  color: emailColors.ink,
+  display: "inline-block",
+  fontSize: "26px",
+  fontWeight: "700",
+  letterSpacing: "-0.5px",
+  lineHeight: "34px",
+  padding: "2px 16px",
+  transform: "rotate(-2deg)",
 };
 
 const content: CSSProperties = {
-  backgroundColor: emailColors.bgRaised,
-  borderRadius: "12px",
-  padding: "36px 32px",
-  marginTop: "0",
-  border: `1px solid ${emailColors.border}`,
-  borderTop: "none",
-  borderTopLeftRadius: "0",
-  borderTopRightRadius: "0",
+  backgroundColor: emailColors.surface,
+  border: rule,
+  borderRadius: "0",
+  boxShadow: raisedShadow,
+  padding: "32px 32px 30px",
 };
 
 const footer: CSSProperties = {
-  padding: "24px 0 0",
-};
-
-const hr: CSSProperties = {
-  borderColor: emailColors.border,
-  margin: "0 0 20px",
+  padding: "28px 0 0",
 };
 
 const footerText: CSSProperties = {
-  color: emailColors.textMuted,
+  color: emailColors.textMute,
   fontSize: "12px",
   lineHeight: "16px",
   margin: "0",
@@ -243,7 +253,7 @@ const footerText: CSSProperties = {
 };
 
 const footerSubtext: CSSProperties = {
-  color: emailColors.textFaint,
+  color: emailColors.textMute,
   fontSize: "11px",
   lineHeight: "16px",
   margin: "4px 0 0",
