@@ -11,6 +11,8 @@ import { PageLoading } from "@/components/ui/page-loading";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Surface } from "@/components/ui/surface";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { UserAvatar } from "@/components/avatar/user-avatar";
+import { useAvatarStore } from "@/stores/avatar";
 
 interface DashboardClientProps {
   /** The signed-in user, fetched during SSR — first paint renders settled.
@@ -21,6 +23,13 @@ interface DashboardClientProps {
 export function DashboardClient({ initialUser }: DashboardClientProps) {
   const router = useRouter();
   const { data: session, isPending } = useSession();
+  const avatar = useAvatarStore((s) => s.avatar);
+  const loadAvatar = useAvatarStore((s) => s.load);
+  const resetAvatar = useAvatarStore((s) => s.reset);
+
+  useEffect(() => {
+    loadAvatar().catch(() => {});
+  }, [loadAvatar]);
 
   // If the session dies (or the user signs out) after the server render,
   // bounce to login — same behaviour as the old client-only page.
@@ -32,6 +41,7 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
 
   async function handleSignOut() {
     await authClient.signOut();
+    resetAvatar();
     router.push("/auth/login");
   }
 
@@ -77,9 +87,13 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
       <SectionHeading title="Your profile" icon={UserRound} fill="var(--app-fill-pink)" />
 
       <Surface className="p-8">
-        <p className="text-sm text-text-muted">
-          Auth is working. Start building your app from here.
-        </p>
+        <div className="flex items-center gap-4">
+          <UserAvatar svg={avatar?.svg} name={user.name} size={56} />
+          <p className="text-sm text-text-muted">
+            Auth is working. Start building your app from here. Change your
+            avatar in <Link href="/settings" className="font-semibold underline">Settings</Link>.
+          </p>
+        </div>
 
         <div className="mt-6 space-y-4">
           <InfoRow label="Name" value={user.name} />

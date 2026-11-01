@@ -2,12 +2,26 @@
 
 import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
+import { Pencil } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { UserAvatar } from "@/components/avatar/user-avatar";
+import { useAvatarStore } from "@/stores/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UsernameInput } from "@/components/ui/username-input";
 import { toast } from "@/components/ui/toaster";
+
+// The editor (renderer + option grids) only loads when someone opens it;
+// warmAvatarEditor starts fetching the chunk on hover, focus or touch.
+const AvatarEditorModal = dynamic(
+  () => import("@/components/avatar/avatar-editor-modal").then((m) => m.AvatarEditorModal),
+  { ssr: false },
+);
+function warmAvatarEditor() {
+  void import("@/components/avatar/avatar-editor-modal");
+}
 
 interface ProfileSectionProps {
   user: { name: string; username?: string | null };
@@ -21,6 +35,13 @@ export function ProfileSection({ user }: ProfileSectionProps) {
   const [usernameStatus, setUsernameStatus] = useState<
     "idle" | "checking" | "available" | "taken"
   >("idle");
+  const avatar = useAvatarStore((s) => s.avatar);
+  const loadAvatar = useAvatarStore((s) => s.load);
+  const [editingAvatar, setEditingAvatar] = useState(false);
+
+  useEffect(() => {
+    loadAvatar().catch(() => {});
+  }, [loadAvatar]);
 
   const trimmedName = name.trim();
   const dirty = trimmedName !== user.name || username !== currentUsername;
@@ -75,8 +96,54 @@ export function ProfileSection({ user }: ProfileSectionProps) {
   }
 
   return (
+    <>
     <SettingsCard>
       <SettingsCardHeader title="Profile" subtitle="Update your personal information." />
+
+      <div className="mt-6 flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setEditingAvatar(true)}
+          onMouseEnter={warmAvatarEditor}
+          onFocus={warmAvatarEditor}
+          onTouchStart={warmAvatarEditor}
+          aria-label="Change avatar"
+          title="Change avatar"
+          className="relative shrink-0 cursor-pointer rounded-full border-0 bg-transparent p-0"
+        >
+          <span className="block rounded-full" style={{ boxShadow: "var(--app-shadow-md)" }}>
+            <UserAvatar svg={avatar?.svg} name={user.name} size={64} />
+          </span>
+          {/* Always visible (not hover-only) so touch screens get the cue. */}
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              right: -6,
+              bottom: -6,
+              width: 26,
+              height: 26,
+              boxSizing: "border-box",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "2px solid var(--app-ink)",
+              borderRadius: 4,
+              background: "var(--app-select)",
+              color: "var(--app-on-fill)",
+              boxShadow: "var(--app-shadow-sm)",
+            }}
+          >
+            <Pencil size={13} strokeWidth={2.6} />
+          </span>
+        </button>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-text">Avatar</div>
+          <div className="text-xs text-text-muted">
+            Shown on your dashboard and next to your chat messages.
+          </div>
+        </div>
+      </div>
 
       <form onSubmit={handleProfileSubmit} className="mt-6 space-y-4">
         <Input
@@ -108,5 +175,7 @@ export function ProfileSection({ user }: ProfileSectionProps) {
         </div>
       </form>
     </SettingsCard>
+    {editingAvatar && <AvatarEditorModal onClose={() => setEditingAvatar(false)} />}
+    </>
   );
 }

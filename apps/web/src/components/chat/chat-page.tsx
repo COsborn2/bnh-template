@@ -18,11 +18,14 @@ import { Surface } from "@/components/ui/surface";
 import { Tag, type TagTone } from "@/components/ui/tag";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { PresenceUser } from "@app/shared";
+import { UserAvatar } from "@/components/avatar/user-avatar";
 
 interface ChatMessage {
   userId: string;
   userName: string;
   isGuest: boolean;
+  /** The sender's stored avatar (null for guests). */
+  avatarSvg?: string | null;
   body: string;
   timestamp: number;
 }
@@ -202,8 +205,9 @@ export function ChatPage() {
           return (
             <div
               key={`${msg.timestamp}-${i}`}
-              className={`mb-3 flex ${isMe ? "justify-end" : "justify-start"}`}
+              className={`mb-3 flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
             >
+              <UserAvatar svg={msg.avatarSvg} name={msg.userName} size={28} />
               <div
                 className={`max-w-[80%] rounded-[var(--radius-lg)] border border-border px-4 py-2 text-sm shadow-control ${
                   isMe

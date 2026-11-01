@@ -62,6 +62,7 @@ publish or reinstall step.
 - Password reset and password-changed email flows
 - Self-service change-email and delete-account flows, both confirmed by email, plus connected-accounts (link/unlink Google) and a set-password path for OAuth-only users, all on the settings page
 - Username support with availability checking
+- Generated bot avatars: every account gets a random one at sign-up and can customize it in settings (a dependency-free SVG renderer in `packages/shared`, rendered and stored by the API, shown on the dashboard and next to chat messages)
 - Admin API and built-in admin UI
 - Cloudflare Turnstile on auth flows
 - Have I Been Pwned password checks

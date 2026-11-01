@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -5,6 +6,7 @@ import {
   boolean,
   unique,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -13,6 +15,11 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  // Avatar (see the shared package's avatar module): the options the user picked and
+  // the SVG rendered from them on the server. Rows created before avatars
+  // existed hold the defaults and get a random bot the first time they're read.
+  avatarSvg: text("avatar_svg").notNull().default(""),
+  avatarOptions: jsonb("avatar_options").notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
