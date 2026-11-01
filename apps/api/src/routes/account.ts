@@ -3,8 +3,10 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { APIError } from "better-auth/api";
 import { isPasswordCompromised } from "better-auth/plugins";
+import { parseAvatarOptions } from "@app/shared";
 import { auth } from "../lib/auth.js";
-import { badRequest } from "../lib/errors.js";
+import { getUserAvatar, saveUserAvatar } from "../lib/avatar.js";
+import { badRequest, notFound } from "../lib/errors.js";
 import { guardImpersonation } from "../lib/impersonation.js";
 import { requireAuth, type AuthUser } from "../middleware/auth.js";
 
@@ -72,4 +74,22 @@ accountRoutes.post("/set-password", async (c) => {
     }
     throw err;
   }
+});
+
+// The signed-in user's avatar. A missing or invalid stored avatar (an
+// account created before avatars existed) is replaced with a random bot and
+// saved, so the response is always a valid, current avatar.
+accountRoutes.get("/avatar", async (c) => {
+  const avatar = await getUserAvatar(c.get("auth").id);
+  if (!avatar) throw notFound("User not found");
+  return c.json(avatar);
+});
+
+// Clients send only the seven option ids; the server renders and stores the
+// SVG, so no client-supplied markup ever reaches the database.
+accountRoutes.put("/avatar", async (c) => {
+  const options = parseAvatarOptions(await c.req.json().catch(() => null));
+  if (!options) throw badRequest("Invalid avatar options");
+  const svg = await saveUserAvatar(c.get("auth").id, options);
+  return c.json({ options, svg });
 });

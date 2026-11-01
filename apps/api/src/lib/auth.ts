@@ -20,6 +20,7 @@ import {
 } from "@app/email";
 import { validateEmailDomain } from "../services/email-validation.js";
 import { deleteAccountData } from "../services/account.js";
+import { assignRandomAvatar } from "./avatar.js";
 import { eq } from "drizzle-orm";
 import { user as userTable } from "@app/db/schema";
 import { betterAuthBaseUrl } from "./config.js";
@@ -318,6 +319,13 @@ export const auth = betterAuth({
 
   databaseHooks: {
     user: {
+      create: {
+        // Every new account (email sign-up, OAuth, admin-created, the seed)
+        // starts with a random bot; the user can customize it in settings.
+        async after(user) {
+          await assignRandomAvatar(user.id);
+        },
+      },
       delete: {
         // Runs immediately before any user row deleted through Better Auth —
         // covers BOTH the self-service /delete-user (callback) flow and admin

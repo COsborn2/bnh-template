@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { publishEvent } from "../lib/redis.js";
+import { getUserAvatar } from "../lib/avatar.js";
 
 const ws = new Hono();
 
@@ -67,11 +68,14 @@ ws.post("/events", async (c) => {
   //   - Transform/enrich the data before publishing
   //   - Publish to additional topics if needed (e.g., notifications)
   if (topic.startsWith("chat:")) {
+    // Signed-in senders carry their stored avatar; guests have none.
+    const avatar = isGuest ? null : await getUserAvatar(userId);
     publishEvent(topic, {
       type: "chat:message",
       userId,
       userName,
       isGuest,
+      avatarSvg: avatar?.svg ?? null,
       body: (data as { body?: string })?.body ?? "",
       timestamp: Date.now(),
     });
