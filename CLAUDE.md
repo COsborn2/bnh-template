@@ -12,11 +12,18 @@ by environment variables.
 - This repo is a template: `bin/create.ts` scaffolds new apps from it, replacing the
   placeholders `MyApp` (display name), `myapp` (db name), `@app/` (workspace scope) and
   `bun-template` (repo name). Every file that contains one of those must be listed in
-  `REPLACEMENT_FILES` in `bin/create.ts`; the block between the `template-only` markers
-  in this file is stripped from scaffolds. `infra/proxy` (the Caddy source) lives only
+  `REPLACEMENT_FILES` in `bin/create.ts`. `infra/proxy` (the Caddy source) lives only
   here. README.md and DEPLOYMENT.md are copied into scaffolded apps: keep them generic
   and keep the placeholders. CI's `scaffold` job creates an app and fails on any
   leftover placeholder.
+- Anything in a copied file that only makes sense here (the generator, the `scaffold`
+  CI job, the proxy build) goes between template-only markers, which scaffolds cut:
+  `<!-- template-only -->`…`<!-- /template-only -->` in Markdown (whole lines, or
+  inline within a paragraph — never inside a code fence), `# template-only`…
+  `# /template-only` lines in YAML and shell (not inside a backslash-continued
+  command). Markdown only a scaffold should show goes in an HTML comment opened by a
+  `<!-- scaffold-only` line and closed by a `-->` line. This block is wrapped that way.
+  `bin/create.test.ts` checks the scaffolded workflows and docs.
 - Scaffolds copy `bun.lock` (it is in `REPLACEMENT_FILES`, renamed with the
   workspaces) and install from it, so new apps start on the template's tested versions
   and the release-age gate never blocks `bun create` or the `scaffold` job.

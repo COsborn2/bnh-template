@@ -276,9 +276,10 @@ export const auth = betterAuth({
       // its own spoofed value, traffic that reaches a service's own Railway
       // domain instead of the proxy, an extra appending hop) resolved to no
       // IP at all and every such request shared one rate-limit bucket.
-      // Mirrors infra/proxy/Caddyfile's `trusted_proxies static
-      // private_ranges 100.64.0.0/10`: chains are stripped right-to-left
-      // through these ranges and the first untrusted hop is the client.
+      // Mirrors the proxy Caddyfile's `trusted_proxies static private_ranges
+      // 100.64.0.0/10` (infra/proxy/Caddyfile in the template repo): chains
+      // are stripped right-to-left through these ranges and the first
+      // untrusted hop is the client.
       trustedProxies: [
         "127.0.0.0/8",
         "10.0.0.0/8",

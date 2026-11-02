@@ -63,13 +63,14 @@ jobs:
             "cron|apps/cron/Dockerfile|."
           )
 
+          # template-only
           # The proxy source lives only in the template repo — scaffolded apps
-          # consume the template's published proxy image instead of building
-          # their own (see the proxy section of DEPLOYMENT.md).
-          if [ -f "infra/proxy/Dockerfile" ]; then
-            services+=("proxy|infra/proxy/Dockerfile|infra/proxy")
-          fi
+          # drop this block and consume the template's published proxy image
+          # instead of building their own (see the proxy section of
+          # DEPLOYMENT.md).
+          services+=("proxy|infra/proxy/Dockerfile|infra/proxy")
 
+          # /template-only
           image_prefix="$(printf '%s' "$IMAGE_PREFIX" | tr '[:upper:]' '[:lower:]')"
           service_names=()
 
