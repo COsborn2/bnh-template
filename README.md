@@ -1,7 +1,15 @@
+<!-- template-only -->
 # Bun Full-Stack Starter
+<!-- /template-only -->
+<!-- scaffold-only
+# MyApp
+
+Built from the [Bun Full-Stack Starter](https://github.com/COsborn2/bnh-template) template.
+-->
 
 A production-ready Bun monorepo with Hono, Next.js, PostgreSQL, Redis, better-auth, and a Caddy edge proxy. It is designed to work well locally and to deploy cleanly as separate services on Railway.
 
+<!-- template-only -->
 ## Quick Start
 
 ### One-time setup
@@ -40,6 +48,7 @@ git pull
 The next `bun create bnh` automatically uses the updated source — there is no
 publish or reinstall step.
 
+<!-- /template-only -->
 ## Tech Stack
 
 | Layer | Technology |
@@ -92,17 +101,20 @@ bun-template/
 │   ├── email/     # React Email templates + sender
 │   ├── otel/      # OpenTelemetry tracing helpers
 │   └── shared/    # Shared TypeScript types
-├── infra/
-│   └── proxy/     # Caddy reverse proxy + loading page (template repo only — scaffolded apps use the published image)
 ├── docker-compose.yml
 ├── turbo.json
 └── package.json
 ```
 
+<!-- template-only -->
+The template repo also holds `bin/` (the `create-bnh` generator) and `infra/proxy/` (the Caddy reverse proxy and its loading page). Scaffolded apps get neither: they run the proxy image this repo publishes.
+
+<!-- /template-only -->
 ## Getting Started
 
 **Prerequisites:** [Bun](https://bun.sh) 1.3+ and [Docker](https://docs.docker.com/get-docker/)
 
+<!-- template-only -->
 ```bash
 # Create a new app (see Quick Start for the one-time bun link setup)
 bun create bnh my-app
@@ -111,7 +123,21 @@ cd my-app
 # Review the generated env files
 #   .env
 #   apps/web/.env.local
+```
 
+<!-- /template-only -->
+<!-- scaffold-only
+```bash
+# Install dependencies
+bun install
+
+# Create the local env files from the examples, then review them
+cp .env.example .env
+cp apps/web/.env.local.example apps/web/.env.local
+```
+
+-->
+```bash
 # Start PostgreSQL and Redis
 docker compose up -d postgres redis
 
@@ -315,7 +341,7 @@ Note: the cron cleanup job deletes unverified accounts after 7 days (`apps/cron/
 
 ## Admin
 
-The template includes:
+The app includes:
 
 - Admin API endpoints exposed through better-auth
 - A built-in `/admin` UI for users with the `admin` role
@@ -416,7 +442,7 @@ The app restyles the shared components rather than forking them, so it doubles a
 
 Change the look by editing those files.
 
-Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs. `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also creates an app, installs it from the template's lockfile, and validates it.
+Keep `@cosborn2/ui` pinned to an exact published version and commit the registry-backed `bun.lock` with dependency updates. CI uses frozen installs.<!-- template-only --> `bun run test:scaffold` checks that generated projects retain the public UI dependency and replace only their own workspace scope; the scaffold job also creates an app, installs it from the template's lockfile, and validates it.<!-- /template-only -->
 
 Review `@cosborn2/ui` minor, major, and prerelease upgrades manually. Dependabot ignores its minor and major updates and keeps UI updates out of dependency groups. Automatic approval and merging require a patch update between two stable versions with complete version metadata; beta updates and missing metadata require manual review.
 

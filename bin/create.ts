@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 import { existsSync } from "fs";
-import { cp, readFile, writeFile } from "fs/promises";
-import { resolve, basename, join } from "path";
+import { cp, readdir, readFile, writeFile } from "fs/promises";
+import { resolve, basename, join, relative } from "path";
 import { $ } from "bun";
 
 // --- Derivation ---
@@ -91,6 +91,69 @@ export async function copyTemplate(templateDir: string, dest: string) {
       return true;
     },
   });
+  await stripTemplateOnlyContent(dest);
+}
+
+// --- Template-only Content ---
+
+// Parts of shared files that only make sense in the template repo — the CI
+// job that tests this generator, the proxy build (its source in `infra/`
+// stays behind), how to install and run `bun create bnh` — are fenced with
+// markers and cut from every scaffolded file before placeholders are rewritten:
+//
+//   <!-- template-only --> … <!-- /template-only -->
+//     Markdown: each marker on its own line to cut whole lines, or both
+//     inside one paragraph to cut a phrase. Keep markers out of code fences,
+//     where GitHub would render them.
+//   # template-only … # /template-only
+//     YAML and shell: each marker alone on its line. Markers in a shell
+//     script must not interrupt a backslash-continued command.
+//
+// Markdown that only a scaffold should show stays hidden in the template in
+// an HTML comment that opens with a `<!-- scaffold-only` line and closes with
+// a `-->` line; scaffolds keep what is between them.
+const TEMPLATE_ONLY_PATTERNS = [
+  /^[ \t]*<!-- template-only -->[ \t]*\r?\n[\s\S]*?^[ \t]*<!-- \/template-only -->[ \t]*(?:\r?\n|$)/gm,
+  /<!-- template-only -->[\s\S]*?<!-- \/template-only -->/g,
+  /^[ \t]*# template-only[ \t]*\r?\n[\s\S]*?^[ \t]*# \/template-only[ \t]*(?:\r?\n|$)/gm,
+];
+const SCAFFOLD_ONLY_BLOCK =
+  /^[ \t]*<!-- scaffold-only[ \t]*\r?\n([\s\S]*?)^[ \t]*-->[ \t]*(?:\r?\n|$)/gm;
+const LEFTOVER_MARKER =
+  /<!-- \/?template-only -->|<!-- scaffold-only|^[ \t]*# \/?template-only[ \t]*$/m;
+
+export function stripTemplateOnly(content: string, file = "input"): string {
+  let stripped = content;
+  for (const pattern of TEMPLATE_ONLY_PATTERNS) {
+    stripped = stripped.replace(pattern, "");
+  }
+  stripped = stripped.replace(SCAFFOLD_ONLY_BLOCK, "$1");
+
+  const leftover = LEFTOVER_MARKER.exec(stripped);
+  if (leftover) {
+    throw new Error(
+      `${file}: unmatched template marker "${leftover[0].trim()}" — every opening marker needs its closing one on a later line`,
+    );
+  }
+  return stripped;
+}
+
+async function stripTemplateOnlyContent(dest: string) {
+  const entries = await readdir(dest, { recursive: true, withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const filePath = join(entry.parentPath, entry.name);
+    const bytes = await readFile(filePath);
+    // Binary files (icons, images) carry no markers.
+    if (bytes.includes(0)) continue;
+
+    const content = bytes.toString("utf-8");
+    if (!content.includes("template-only") && !content.includes("scaffold-only")) {
+      continue;
+    }
+    const stripped = stripTemplateOnly(content, relative(dest, filePath));
+    if (stripped !== content) await writeFile(filePath, stripped);
+  }
 }
 
 // --- Sentinel Replacement ---
@@ -178,9 +241,6 @@ const REPLACEMENT_FILES = [
   "README.md",
 ];
 
-const TEMPLATE_ONLY_BLOCK =
-  /[ \t]*<!-- template-only -->[\s\S]*?<!-- \/template-only -->\r?\n?/g;
-
 interface Replacements {
   projectName: string;
   displayName: string;
@@ -196,13 +256,10 @@ export async function replaceInFiles(dest: string, r: Replacements) {
       continue;
     }
 
+    // copyTemplate has already cut template-only blocks, so a sentence that
+    // names the placeholders (CLAUDE.md's maintainer notes) never reaches a
+    // scaffold half-substituted.
     let content = await readFile(filePath, "utf-8");
-
-    // Drop template-maintainer notes (CLAUDE.md wraps them in
-    // `<!-- template-only -->` … `<!-- /template-only -->`) before the
-    // placeholder rewrite, so the sentence naming the placeholders never
-    // reaches a scaffold half-substituted.
-    content = content.replace(TEMPLATE_ONLY_BLOCK, "");
 
     // Replace @app/ scope (before other replacements to avoid partial matches)
     content = content.replaceAll("@app/", `@${r.scope}/`);

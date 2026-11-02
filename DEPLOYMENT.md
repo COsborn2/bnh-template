@@ -27,7 +27,7 @@ Gather these first so you never have to stop mid-setup:
 | What | Needed for | Where to get it |
 |---|---|---|
 | Railway account | everything below | [railway.com](https://railway.com) |
-| Your app scaffolded and pushed to GitHub | CI/CD image publishing and deploys | Step 0 below |
+| Your app<!-- template-only --> scaffolded and<!-- /template-only --> pushed to GitHub | CI/CD image publishing and deploys | Step 0 below |
 | Cloudflare Turnstile **site key + secret key** | production auth forms (register/login) | Cloudflare dashboard -> Turnstile -> Add widget (free) |
 | Resend API key + verified sender domain | real email delivery (optional but recommended) | [resend.com](https://resend.com) -> API Keys / Domains |
 | Google OAuth client ID + secret | Google login (optional) | Google Cloud console -> APIs & Services -> Credentials -> OAuth client ID |
@@ -40,7 +40,7 @@ Two credentials are created *during* setup rather than up front — where to get
 
 The order of operations at a glance:
 
-0. Scaffold the app from the template and push it to GitHub (Step 0)
+0. Push the app to GitHub<!-- template-only -->, scaffolding it from the template first<!-- /template-only --> (Step 0)
 1. Railway: project, databases, app services, public domain (Steps 1–4)
 2. Railway: shared + per-service variables, healthchecks (Steps 5–7)
 3. GitHub: environments, tokens, variables, branch protection (Step 8)
@@ -100,9 +100,17 @@ Recommended exposure:
 
 `postgres` and `redis` should be added from Railway’s managed database services rather than from this repo.
 
+<!-- template-only -->
 ## Step 0: Scaffold Your App and Push It to GitHub
+<!-- /template-only -->
+<!-- scaffold-only
+## Step 0: Push Your App to GitHub
+-->
 
 Skip this step if the app already exists on GitHub.
+
+<!-- template-only -->
+First scaffold it:
 
 1. One-time setup for the `create-bnh` command (it runs from a local checkout of the template; it is not published to npm):
 
@@ -121,7 +129,10 @@ Skip this step if the app already exists on GitHub.
 
    This copies the template with your project name substituted everywhere (package scope, display name, database name), creates `.env` and `apps/web/.env.local` from the examples, installs dependencies, and initializes a git repo with an initial commit. There is no remote yet.
 
-3. Create an **empty** GitHub repository (no README, no .gitignore — the scaffold already has both), then connect and push:
+Then push it:
+
+<!-- /template-only -->
+1. Create an **empty** GitHub repository (no README, no .gitignore — the scaffold already has both), then connect and push:
 
    ```bash
    git branch -M main
@@ -131,12 +142,12 @@ Skip this step if the app already exists on GitHub.
 
    The branch must be named `main` — CI builds images on every push to `main` and deploys from it.
 
-4. Expect that first push's CI run to publish images but end with a red (or approval-gated) `Deploy to Railway` job — Railway and the `RAILWAY_TOKEN` secret don't exist yet. That's normal; Step 3 and Step 8 finish the wiring.
+2. Expect that first push's CI run to publish images but end with a red (or approval-gated) `Deploy to Railway` job — Railway and the `RAILWAY_TOKEN` secret don't exist yet. That's normal; Step 3 and Step 8 finish the wiring.
 
 ## Step 1: Create the Project
 
 1. Create a new Railway project.
-2. Connect the GitHub repo that contains this template so GitHub Actions can publish images from `main`.
+2. Connect the GitHub repo that contains this app so GitHub Actions can publish images from `main`.
 3. Stay in the `production` environment while you do the initial setup.
 
 ## Step 2: Add Postgres and Redis
@@ -437,7 +448,7 @@ https://myapp-production.up.railway.app
 
 On pushes to `main`, `.github/workflows/ci.yml`:
 
-1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI; in the template repo a `scaffold` job also runs `bin/create.ts` and fails on any leftover placeholder or lint error in the generated app
+1. lints, builds, tests (against Postgres and Redis service containers), and runs migrations in CI<!-- template-only -->; in the template repo a `scaffold` job also runs `bin/create.ts` and fails on any leftover placeholder or lint error in the generated app<!-- /template-only -->
 2. detects affected services with `turbo query affected` and builds a dynamic Docker job matrix — unchanged services spawn no jobs at all (the `proxy` never appears in your app's matrix; its source lives only in the template repo, whose own CI publishes the proxy image)
 3. waits for the `production` GitHub environment before the Docker jobs run, so environment protection rules can gate publishing
 4. builds and pushes each affected image to GHCR under its immutable `sha-<commit>` tag, runs the built `web` image and requires `/health` to answer within 60 seconds — a green `docker build` says nothing about whether the image boots (next 16.3.1's standalone output built fine and crash-looped at startup) — and only then promotes the pushed image to `latest`. A failed smoke test fails the Docker job, blocks `railway-deploy`, and leaves `latest` on the previous image
