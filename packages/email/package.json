@@ -14,7 +14,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "resend": "^6.35.0",
+    "resend": "^6.37.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.2.0"
   },
