@@ -19,7 +19,7 @@
     "@opentelemetry/api": "~1.10.0",
     "better-auth": "^1.7.15",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.14",
+    "hono": "^4.13.16",
     "postgres": "^3.4.9",
     "rate-limiter-flexible": "^11.2.3",
     "winston": "^3.19.0",
