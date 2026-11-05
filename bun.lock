@@ -70,7 +70,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@app/shared": "workspace:*",
-        "@cosborn2/ui": "0.4.5",
+        "@cosborn2/ui": "0.4.6",
         "@marsidev/react-turnstile": "^1.6.3",
         "@opentelemetry/api": "~1.10.0",
         "@opentelemetry/api-logs": "^0.223.0",
@@ -252,7 +252,7 @@
 
     "@colors/colors": ["@colors/colors@1.6.1", "", {}, "sha512-dTmUJzXSuayBK+hZydEaXd2mhx61qWQwkwaBBY6LyEOVx/L9aQU5ac8eFNEsd9nrD1+zb9zvDCphLSe8g1F4Qw=="],
 
-    "@cosborn2/ui": ["@cosborn2/ui@0.4.5", "", { "dependencies": { "@radix-ui/react-dialog": "1.3.1", "@radix-ui/react-dropdown-menu": "2.2.1", "lucide-react": "1.61.0" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-VfgZ9qIvvupYkbu2aU6dPOyP5OaC5+MbYPLRIjcEpksSAaNPtG46VK4B0x8mYlMa7bxTCjpMQBEQTb+i1gMbug=="],
+    "@cosborn2/ui": ["@cosborn2/ui@0.4.6", "", { "dependencies": { "@radix-ui/react-dialog": "1.3.1", "@radix-ui/react-dropdown-menu": "2.2.1", "lucide-react": "1.61.0" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-RorWVcDhh8j6JHOvCA9ilMhZInaXlnpBSCh9jhhV7wESbzy65Lrrs4D7zrErbrtDLRanCljhaUSXWZ9xwZ1BTw=="],
 
     "@dabh/diagnostics": ["@dabh/diagnostics@2.0.9", "", { "dependencies": { "@so-ric/colorspace": "^1.1.6", "enabled": "2.0.x", "kuler": "^2.0.0" } }, "sha512-R6siwR65Hm+3yfgP7o8DKhNvputQAwfoz9zTc3kyDudnomj2/BcLmD+uGQQPICjuFUp8ounPBU+jmKsocwVVAg=="],
 
