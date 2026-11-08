@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { Pencil } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { UserAvatar } from "@/components/avatar/user-avatar";
-import { useAvatarStore } from "@/stores/avatar";
+import { useAvatarStore, type Avatar } from "@/stores/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UsernameInput } from "@/components/ui/username-input";
@@ -24,10 +24,13 @@ function warmAvatarEditor() {
 }
 
 interface ProfileSectionProps {
-  user: { name: string; username?: string | null };
+  user: { id: string; name: string; username?: string | null };
+  /** The avatar the server page prefetched; shown on first paint and used
+   *  to seed the avatar store instead of fetching it again. */
+  initialAvatar?: Avatar | null;
 }
 
-export function ProfileSection({ user }: ProfileSectionProps) {
+export function ProfileSection({ user, initialAvatar = null }: ProfileSectionProps) {
   const [name, setName] = useState(user.name);
   const currentUsername = user.username ?? "";
   const [username, setUsername] = useState(currentUsername);
@@ -35,13 +38,16 @@ export function ProfileSection({ user }: ProfileSectionProps) {
   const [usernameStatus, setUsernameStatus] = useState<
     "idle" | "checking" | "available" | "taken"
   >("idle");
-  const avatar = useAvatarStore((s) => s.avatar);
+  const storedAvatar = useAvatarStore((s) => s.avatar);
+  const avatar = storedAvatar ?? initialAvatar;
   const loadAvatar = useAvatarStore((s) => s.load);
+  const primeAvatar = useAvatarStore((s) => s.prime);
   const [editingAvatar, setEditingAvatar] = useState(false);
 
   useEffect(() => {
+    if (initialAvatar) primeAvatar(initialAvatar, user.id);
     loadAvatar().catch(() => {});
-  }, [loadAvatar]);
+  }, [loadAvatar, primeAvatar, initialAvatar, user.id]);
 
   const trimmedName = name.trim();
   const dirty = trimmedName !== user.name || username !== currentUsername;
