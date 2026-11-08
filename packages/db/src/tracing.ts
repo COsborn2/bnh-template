@@ -1,8 +1,8 @@
 import { withSpan } from "@app/otel";
 
 /**
- * Drizzle has no first-party OpenTelemetry instrumentation and postgres-js
- * isn't covered by OTel auto-instrumentation, so we proxy the query-builder
+ * Drizzle has no first-party OpenTelemetry instrumentation and the app
+ * registers no driver auto-instrumentation, so we proxy the query-builder
  * surface and open a span around the awaited query. Chain methods
  * (`.from().where()`) return fresh builders, so the proxy is re-applied
  * recursively and only the terminal `await` opens a span.

@@ -16,10 +16,12 @@
   "dependencies": {
     "@app/otel": "workspace:*",
     "drizzle-orm": "^0.45.4",
-    "postgres": "^4.0.0"
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/bun": "^1.4.3",
+    "@types/pg": "^8.23.1",
+    "pg-connection-string": "^2.14.1",
     "typescript": "^6.0.3"
   }
 }

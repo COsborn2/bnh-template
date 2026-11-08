@@ -265,7 +265,7 @@ These should be set on each service’s own Variables tab.
 | `GOOGLE_CLIENT_SECRET` | `GOCSPX-...` | Optional | Leave unset to disable Google OAuth. If you set one Google var, set both. |
 | `LOG_LEVEL` | `info` | Optional | Winston level for the API's structured JSON logs (`error`, `warn`, `info`, `debug`). |
 | `DB_QUERY_LOGGING` | `false` | Optional | Set to `true` only when debugging SQL. |
-| `DB_POOL_SIZE` | `10` | Optional | postgres-js connections per API process (default 10). Must be a positive integer; the API fails fast at startup otherwise. |
+| `DB_POOL_SIZE` | `10` | Optional | Database connections per API process (default 10). Must be a positive integer; the API fails fast at startup otherwise. See [Database Performance](#database-performance). |
 
 Do not set `RATE_LIMITS_DISABLED` in Railway. It is a local-development bypass and the API hard-ignores it when `NODE_ENV=production`, so setting it in production only causes confusion.
 
@@ -513,6 +513,58 @@ If you want scheduled jobs:
 3. Make sure the process exits when work is finished.
 
 The starter `apps/cron/src/cleanup.ts` exits cleanly (non-zero when any cleanup step failed), which makes it safe to run as a scheduled job and easy to alert on.
+
+## Database Performance
+
+Request latency is usually dominated by **round trips to Postgres**, not query execution: an endpoint that runs a dozen small indexed queries in a few sequential steps pays the network round trip at every step. Measure before tuning anything.
+
+### Measure
+
+In the `postgres` service's "Database" tab (or any `psql` session):
+
+```sql
+-- Settings the checklist below refers to
+SHOW shared_buffers;  SHOW random_page_cost;  SHOW max_connections;
+
+-- Slowest statements (needs: CREATE EXTENSION IF NOT EXISTS pg_stat_statements;)
+SELECT calls, round(mean_exec_time::numeric, 2) AS mean_ms,
+       round(total_exec_time::numeric) AS total_ms, left(query, 120) AS query
+FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 15;
+```
+
+Execution times there exclude the network. If they're small but requests are still slow, the time is in round trips: check the checklist's URL and region items first. `SELECT pg_stat_statements_reset();` starts a fresh measuring window.
+
+### Railway checklist
+
+1. **Use the private URL.** `DATABASE_URL` should be a `*.railway.internal` host (`${{ postgres.DATABASE_URL }}`). Never use the public TCP proxy (`*.proxy.rlwy.net`) from a service: every query would leave the private network.
+2. **Use one region.** Run `api`, `postgres` (and any PgBouncer instances) in the same region; a cross-region hop multiplies into every request.
+3. **Size the pool.** `DB_POOL_SIZE` is each API process's connection count (10 by default). Endpoints that run reads concurrently hold several connections at once, so raise it (20–30) if latency climbs under concurrent load while single requests stay fast. Keep processes × `DB_POOL_SIZE` (plus `cron` and `migrate`) below Postgres's `max_connections`, or put Railway's connection pooling (PgBouncer) in front.
+4. **Watch the pooler, if you use one.** With Railway's PgBouncer, the Postgres panel's "Clients Waiting" and "Max Wait" show whether queries queue in the pooler. If they rise under load, raise "Connections to Postgres", keeping instances × connections below `max_connections`.
+5. **Size Postgres memory.** If `shared_buffers` is still the 128 MB default and the service has the RAM, set about 25% of it. On SSD volumes, also lower `random_page_cost`:
+
+   ```sql
+   ALTER SYSTEM SET shared_buffers = '512MB';    -- takes effect after Postgres restarts
+   ALTER SYSTEM SET random_page_cost = 1.1;
+   SELECT pg_reload_conf();
+   ```
+
+6. **Refresh statistics after a major-version upgrade, restore or bulk load.** Planner statistics can be missing or stale afterwards, and autovacuum only re-analyzes a table once enough of its rows change. Run `VACUUM (ANALYZE);` once; `SELECT relname FROM pg_stat_user_tables WHERE last_analyze IS NULL AND last_autoanalyze IS NULL;` lists tables that have never been analyzed.
+
+### Driver: node-postgres, one round trip per query
+
+`packages/db` talks to Postgres through node-postgres (`pg`, via `drizzle-orm/node-postgres`). It sends each parameterised query as Parse/Bind/Execute in one write and lets Postgres infer the parameter types, so every query is **one** round trip with no server-side prepared statement.
+
+- **Why not postgres-js.** postgres-js asks Postgres for the parameter types before sending values whenever a query isn't prepared, and drizzle never prepares ordinary queries, so each query takes two round trips. Preparing them doesn't mix safely with a transaction-mode PgBouncer:
+  - It needs PgBouncer's prepared-statement tracking; without it, queries hang.
+  - A column type change leaves PgBouncer serving a stale statement, and those queries fail until it expires.
+- **Works with or without PgBouncer.** Nothing to configure: PgBouncer's "Max prepared statements" setting goes unused and can stay as it is.
+- **Pool settings** (`packages/db/src/pool-config.ts`): idle connections stay open for five minutes rather than node-postgres's 10-second default, connections recycle every 30 minutes, and TCP keepalive is on. A connection that drops while idle (a Postgres or PgBouncer restart) is logged as `db.pool_idle_client_error` and replaced; it doesn't crash the API.
+- **SSL.** `sslmode=require` keeps its libpq meaning: encrypted, without verifying Railway's self-signed certificate.
+- **Startup parameters.** Never add any (`options=-c ...` in the URL, or the driver's equivalents): PgBouncer refuses the whole connection over one it doesn't track ("unsupported startup parameter"). Use `SET LOCAL` inside a transaction instead.
+
+### Index migrations
+
+`drizzle-kit` generates a plain `CREATE INDEX`, which blocks writes to that table while the index builds, and drizzle runs migrations in a transaction, so `CREATE INDEX CONCURRENTLY` isn't an option. On small tables that takes milliseconds; once a table holds millions of rows, run `migrate` at a quiet time when a migration indexes it.
 
 ## Recommended Railway-Specific Conventions
 

@@ -1,10 +1,10 @@
-/** postgres-js's own default pool size. */
+/** node-postgres's own default pool size. */
 export const DEFAULT_POOL_SIZE = 10;
 
 /**
  * Hot request paths fan queries out with Promise.all, so bursts can briefly
  * hold several connections per request — DB_POOL_SIZE lets deployments size
- * the pool to their concurrency. Unset or blank keeps postgres-js's default;
+ * the pool to their concurrency. Unset or blank keeps the driver's default;
  * garbage fails fast instead of silently building a zero-connection pool
  * that hangs every query.
  */

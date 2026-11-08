@@ -41,6 +41,18 @@ by environment variables.
   non-local request, so fake each new third-party call there. Web component tests are
   colocated `*.test.tsx` files using `renderToString`. bun's `mock.module` is
   process-global across test files — import `./x.js?real` to bypass a leaked mock.
+- DB latency is round trips, not execution: `packages/db` uses node-postgres
+  (one round trip per query, directly or through a transaction-mode
+  PgBouncer). On hot paths, join related rows in instead of fetching rows and
+  then looking names up, and put independent reads in one `Promise.all`.
+  Never add connection startup parameters (PgBouncer refuses the connection)
+  or session-level `SET`s — use `SET LOCAL` in a transaction.
+  `db.execute()` returns node-postgres's `{ rows }`. drizzle leaves columns
+  unqualified in single-table selects, so a correlated `sql` subquery's
+  `a = b` can bind both sides to the inner table — use a join, or check
+  `.toSQL()`. Index the columns a hot query filters on (Postgres doesn't
+  index foreign keys for you). DEPLOYMENT.md "Database Performance" covers
+  the driver choice and tuning.
 - Migrations: edit `packages/db/src/schema.ts`, then root `bun run db:generate` and
   `bun run db:migrate`. Never hand-write migration SQL; never rewrite a published
   migration (`apps/migrate/src/migrations.test.ts` pins them).
