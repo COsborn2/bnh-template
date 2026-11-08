@@ -25,11 +25,14 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
   const { data: session, isPending } = useSession();
   const avatar = useAvatarStore((s) => s.avatar);
   const loadAvatar = useAvatarStore((s) => s.load);
-  const resetAvatar = useAvatarStore((s) => s.reset);
+  const viewerId = session?.user.id;
 
+  // Re-runs when the account changes under this page (starting or stopping
+  // an impersonation lands here): the avatar store has already dropped the
+  // previous account's avatar by then (stores/viewer-scope.ts).
   useEffect(() => {
     loadAvatar().catch(() => {});
-  }, [loadAvatar]);
+  }, [loadAvatar, viewerId]);
 
   // If the session dies (or the user signs out) after the server render,
   // bounce to login — same behaviour as the old client-only page.
@@ -41,7 +44,6 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
 
   async function handleSignOut() {
     await authClient.signOut();
-    resetAvatar();
     router.push("/auth/login");
   }
 

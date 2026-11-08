@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { publishEvent } from "../lib/redis.js";
 import { getUserAvatar } from "../lib/avatar.js";
+import { secretsMatch } from "../lib/secrets.js";
 
 const ws = new Hono();
 
@@ -14,8 +15,7 @@ ws.use("*", async (c, next) => {
     return c.json({ error: "WS auth is not configured" }, 503);
   }
 
-  const secret = c.req.header("X-WS-Secret");
-  if (secret !== expectedSecret) {
+  if (!secretsMatch(c.req.header("X-WS-Secret"), expectedSecret)) {
     return c.json({ error: "Forbidden" }, 403);
   }
   await next();

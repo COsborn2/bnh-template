@@ -11,6 +11,8 @@
  *  - Initialises the disposable-email blocklist
  */
 
+// First: stop with directions when there is no usable database.
+import "./require-database.js";
 import { Hono } from "hono";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

@@ -236,6 +236,7 @@ const REPLACEMENT_FILES = [
   "scripts/check-peer-deps.ts",
   "scripts/integration-test.sh",
   "apps/api/src/__tests__/setup.ts",
+  "apps/api/src/__tests__/require-database.ts",
   "apps/cron/src/cleanup.ts",
   "packages/shared/src/index.ts",
   "README.md",

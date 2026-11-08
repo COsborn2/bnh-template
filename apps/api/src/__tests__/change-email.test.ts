@@ -13,6 +13,8 @@
  */
 
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+// Stop with directions when there is no usable database.
+import "./require-database.js";
 import { db } from "@app/db";
 import { user as userTable } from "@app/db/schema";
 import { eq } from "drizzle-orm";

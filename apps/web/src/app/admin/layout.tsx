@@ -19,16 +19,16 @@ export default function AdminLayout({
 
   if (isPending) {
     return (
-      <div className="flex min-h-screen">
-        <div className="w-60 border-r border-border bg-bg-raised p-4">
+      <div className="flex min-h-screen flex-col md:flex-row">
+        <div className="w-full border-b border-border bg-bg-raised p-4 md:w-60 md:border-r md:border-b-0">
           <Skeleton className="h-6 w-24 mb-4" />
           <Skeleton className="h-8 w-full mb-2" />
           <Skeleton className="h-8 w-full mb-2" />
           <Skeleton className="h-8 w-full" />
         </div>
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 sm:p-8">
           <Skeleton className="h-8 w-48 mb-4" />
-          <Skeleton className="h-4 w-96 mb-6" />
+          <Skeleton className="h-4 w-96 max-w-full mb-6" />
           <Skeleton className="h-64 w-full" />
         </div>
       </div>
@@ -52,9 +52,9 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
       <AdminSidebar items={navItems} />
-      <main className="min-w-0 flex-1 p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-8">{children}</main>
     </div>
   );
 }
