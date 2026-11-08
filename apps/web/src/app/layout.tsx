@@ -5,6 +5,7 @@ import { SITE_URL, SITE_URL_IS_CONFIGURED } from "@/lib/site";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
+import { NavigationProgressProvider } from "@/components/navigation-progress";
 
 // Self-hosted via next/font: the files are downloaded at build time and served
 // from /_next/static, so no runtime request goes to Google Fonts. The CSS
@@ -57,7 +58,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-bg text-text antialiased">
         <ImpersonationBanner />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <NavigationProgressProvider>{children}</NavigationProgressProvider>
+        </ThemeProvider>
         <Toaster />
       </body>
     </html>

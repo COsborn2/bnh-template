@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PendingLink } from "@/components/navigation-progress";
 import { authClient, useSession } from "@/lib/auth-client";
 import {
   buildChatWebSocketUrl,
@@ -150,11 +151,11 @@ export function ChatPage() {
           <ThemeToggle />
           {session ? (
             <>
-              <Link href="/dashboard">
+              <PendingLink href="/dashboard">
                 <Button variant="secondary" size="sm">
                   Dashboard
                 </Button>
-              </Link>
+              </PendingLink>
               <Button
                 variant="ghost"
                 size="sm"

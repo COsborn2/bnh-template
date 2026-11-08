@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { UserRound } from "lucide-react";
 import { authClient, useSession } from "@/lib/auth-client";
 import type { SessionUser } from "@/lib/session-user";
@@ -13,6 +12,7 @@ import { Surface } from "@/components/ui/surface";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { UserAvatar } from "@/components/avatar/user-avatar";
 import { useAvatarStore, type Avatar } from "@/stores/avatar";
+import { PendingLink } from "@/components/navigation-progress";
 
 interface DashboardClientProps {
   /** The signed-in user, fetched during SSR — first paint renders settled.
@@ -77,22 +77,22 @@ export function DashboardClient({
         <div className="flex flex-wrap items-center gap-3">
           <ThemeToggle />
           {user.role === "admin" && (
-            <Link href="/admin">
+            <PendingLink href="/admin">
               <Button variant="secondary" size="sm">
                 Admin
               </Button>
-            </Link>
+            </PendingLink>
           )}
-          <Link href="/settings">
+          <PendingLink href="/settings">
             <Button variant="secondary" size="sm">
               Settings
             </Button>
-          </Link>
-          <Link href="/">
+          </PendingLink>
+          <PendingLink href="/">
             <Button variant="secondary" size="sm">
               Chat
             </Button>
-          </Link>
+          </PendingLink>
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             Sign out
           </Button>
@@ -106,7 +106,7 @@ export function DashboardClient({
           <UserAvatar svg={avatar?.svg} name={user.name} size={56} />
           <p className="text-sm text-text-muted">
             Auth is working. Start building your app from here. Change your
-            avatar in <Link href="/settings" className="font-semibold underline">Settings</Link>.
+            avatar in <PendingLink href="/settings" className="font-semibold underline">Settings</PendingLink>.
           </p>
         </div>
 
