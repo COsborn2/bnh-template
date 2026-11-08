@@ -200,7 +200,7 @@ These are used by the API locally, and several are also shared by the WebSocket 
 | `WS_EVENTS_URL` | `http://localhost:3001/api/ws/events` | Required for `apps/ws` |
 | `WS_API_SECRET` | `dev-ws-secret-change-in-production` | Required for API ↔ WS internal auth |
 | `DB_QUERY_LOGGING` | unset | Optional; set to `true` to log SQL queries |
-| `DB_POOL_SIZE` | unset (`10`) | Optional; postgres-js connections per process. Must be a positive integer — anything else fails fast at startup |
+| `DB_POOL_SIZE` | unset (`10`) | Optional; database connections per process. Must be a positive integer — anything else fails fast at startup |
 | `LOG_LEVEL` | unset (`info`) | Optional; winston log level for the API's structured JSON logs |
 | `RATE_LIMITS_DISABLED` | `false` | Optional; set to `true` to skip app rate limits in dev. Ignored in production |
 | `HONEYCOMB_API_KEY` and other `OTEL_*` vars | unset | Optional; see [Observability](#observability). Tracing is a no-op when unset |

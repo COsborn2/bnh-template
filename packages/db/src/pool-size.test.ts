@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_POOL_SIZE, parsePoolSize } from "./pool-size.js";
 
 describe("parsePoolSize", () => {
-  test("keeps postgres-js's default when unset or blank", () => {
+  test("keeps the driver's default when unset or blank", () => {
     expect(parsePoolSize(undefined)).toBe(DEFAULT_POOL_SIZE);
     expect(parsePoolSize("")).toBe(10);
     expect(parsePoolSize("   ")).toBe(10);

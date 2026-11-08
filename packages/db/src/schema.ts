@@ -96,14 +96,21 @@ export const account = pgTable(
   ],
 );
 
-export const verification = pgTable("verification", {
-  id: text("id").primaryKey(),
-  identifier: text("identifier").notNull(),
-  value: text("value").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+export const verification = pgTable(
+  "verification",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  // better-auth reads and deletes verification values by identifier (email
+  // verification, password reset, change-email, OAuth state); without this,
+  // each lookup scans the table.
+  (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
 
 // NOTE: better-auth rate limiting uses Redis (apps/api/src/lib/rate-limits.ts,
 // wired via rateLimit.customStorage) — there is deliberately no rate_limit
