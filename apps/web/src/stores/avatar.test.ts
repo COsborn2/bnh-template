@@ -71,3 +71,21 @@ test("a response for the previous account that lands after a switch is not cache
   requests[1]!.resolve("<svg>bob</svg>");
   expect((await fresh)?.svg).toBe("<svg>bob</svg>");
 });
+
+test("prime() seeds the cache with the server's avatar, so load() doesn't fetch", async () => {
+  setViewer("alice");
+  useAvatarStore.getState().prime({ options: OPTIONS, svg: "<svg>server</svg>" }, "alice");
+  expect((await useAvatarStore.getState().load())?.svg).toBe("<svg>server</svg>");
+  expect(requests).toHaveLength(0);
+});
+
+test("prime() never overwrites a cached avatar or seeds another account's", async () => {
+  setViewer("alice");
+  useAvatarStore.getState().prime({ options: OPTIONS, svg: "<svg>first</svg>" }, "alice");
+  useAvatarStore.getState().prime({ options: OPTIONS, svg: "<svg>second</svg>" }, "alice");
+  expect(useAvatarStore.getState().avatar?.svg).toBe("<svg>first</svg>");
+
+  setViewer("bob");
+  useAvatarStore.getState().prime({ options: OPTIONS, svg: "<svg>alice</svg>" }, "alice");
+  expect(useAvatarStore.getState().avatar).toBeNull();
+});

@@ -12,27 +12,40 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { Surface } from "@/components/ui/surface";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { UserAvatar } from "@/components/avatar/user-avatar";
-import { useAvatarStore } from "@/stores/avatar";
+import { useAvatarStore, type Avatar } from "@/stores/avatar";
 
 interface DashboardClientProps {
   /** The signed-in user, fetched during SSR — first paint renders settled.
    *  Used only until `useSession` finishes its own load. */
   initialUser: SessionUser;
+  /** `initialUser`'s avatar, fetched during SSR; null if that failed. */
+  initialAvatar?: Avatar | null;
 }
 
-export function DashboardClient({ initialUser }: DashboardClientProps) {
+export function DashboardClient({
+  initialUser,
+  initialAvatar = null,
+}: DashboardClientProps) {
   const router = useRouter();
   const { data: session, isPending } = useSession();
-  const avatar = useAvatarStore((s) => s.avatar);
+  const storedAvatar = useAvatarStore((s) => s.avatar);
   const loadAvatar = useAvatarStore((s) => s.load);
+  const primeAvatar = useAvatarStore((s) => s.prime);
   const viewerId = session?.user.id;
+  // The server's avatar belongs to initialUser: never show it for anyone else.
+  const avatar =
+    storedAvatar ??
+    (!viewerId || viewerId === initialUser.id ? initialAvatar : null);
 
+  // Seeds the store with the server's avatar instead of fetching it again.
   // Re-runs when the account changes under this page (starting or stopping
   // an impersonation lands here): the avatar store has already dropped the
-  // previous account's avatar by then (stores/viewer-scope.ts).
+  // previous account's avatar by then (stores/viewer-scope.ts), and prime()
+  // ignores an avatar that isn't the signed-in account's.
   useEffect(() => {
+    if (initialAvatar) primeAvatar(initialAvatar, initialUser.id);
     loadAvatar().catch(() => {});
-  }, [loadAvatar, viewerId]);
+  }, [loadAvatar, primeAvatar, initialAvatar, initialUser.id, viewerId]);
 
   // If the session dies (or the user signs out) after the server render,
   // bounce to login — same behaviour as the old client-only page.

@@ -2,16 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { toLinkedAccounts, type LinkedAccount } from "./linked-accounts";
 
-/** One row of better-auth's GET /list-accounts. */
-export interface LinkedAccount {
-  /** better-auth's own row id — what /unlink-account is keyed by. */
-  id: string;
-  /** "credential" for the password account, otherwise the OAuth provider id. */
-  providerId: string;
-  /** The user's id at the provider. */
-  accountId: string;
-}
+export type { LinkedAccount };
 
 export interface AccountsState {
   /** Every account, credential rows included; null until the fetch settles. */
@@ -32,25 +25,25 @@ async function fetchAccounts(): Promise<FetchResult> {
   try {
     const { data, error } = await authClient.listAccounts();
     if (error) return { error: error.message || LOAD_ERROR };
-    return {
-      list: data.map(({ id, providerId, accountId }) => ({
-        id,
-        providerId,
-        accountId,
-      })),
-    };
+    return { list: toLinkedAccounts(data) };
   } catch {
     return { error: LOAD_ERROR };
   }
 }
 
 /**
- * The viewer's sign-in methods. Fetched once by the settings shell and shared
- * by the password and connected-accounts sections, which both need to know
- * whether a credential account exists.
+ * The viewer's sign-in methods, shared by the password, connected-accounts
+ * and delete sections, which all need to know whether a credential account
+ * exists. The server page prefetches them for those sections (`initial`);
+ * the browser only fetches when that prefetch failed, and not at all for
+ * sections that don't need them (`needed`).
  */
-export function useAccounts(): AccountsState {
-  const [list, setList] = useState<LinkedAccount[] | null>(null);
+export function useAccounts(
+  initial: LinkedAccount[] | null,
+  needed: boolean,
+): AccountsState {
+  const [list, setList] = useState<LinkedAccount[] | null>(initial);
+  const hasInitial = initial !== null;
   const [error, setError] = useState("");
 
   const apply = useCallback((result: FetchResult) => {
@@ -65,8 +58,8 @@ export function useAccounts(): AccountsState {
   const refetch = useCallback(() => fetchAccounts().then(apply), [apply]);
 
   useEffect(() => {
-    void refetch();
-  }, [refetch]);
+    if (needed && !hasInitial) void refetch();
+  }, [needed, hasInitial, refetch]);
 
   return {
     list,

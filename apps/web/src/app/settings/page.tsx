@@ -7,8 +7,10 @@ import { HeaderShell } from "@cosborn2/ui/header-shell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { serverApiOrNull } from "@/lib/server-api";
 import { SettingsClient } from "./settings-client";
-import { settingsSection } from "./settings-user";
+import { sectionNeedsAccounts, settingsSection } from "./settings-user";
+import { toLinkedAccounts, type LinkedAccount } from "./_components/linked-accounts";
 import type { SessionUser } from "@/lib/session-user";
+import type { Avatar } from "@/stores/avatar";
 import "@cosborn2/ui/settings.css";
 import "@cosborn2/ui/header-shell.css";
 
@@ -28,15 +30,29 @@ const sections: RailSection<SettingsNavigationItem>[] = [
   ] },
 ];
 
+// Prefetched alongside the session so the open section renders settled
+// instead of popping in after a browser round trip. Both are best-effort:
+// null means the client fetches them itself, as it did before.
+const getLinkedAccounts = () =>
+  serverApiOrNull<LinkedAccount[]>("/auth/list-accounts")
+    .then((rows) => (rows ? toLinkedAccounts(rows) : null))
+    .catch(() => null);
+
+const getAvatar = () =>
+  serverApiOrNull<Avatar>("/account/avatar").catch(() => null);
+
 export default async function SettingsPage({ searchParams }: {
   searchParams: Promise<{ section?: string | string[] }>;
 }) {
-  const [result, query] = await Promise.all([
+  const section = settingsSection((await searchParams).section);
+  // Only what the open section shows. Every section switch is a server
+  // render (SettingsClient is keyed by section), so each fetches its own.
+  const [result, initialAccounts, initialAvatar] = await Promise.all([
     serverApiOrNull<{ user: SessionUser } | null>("/auth/get-session"),
-    searchParams,
+    sectionNeedsAccounts(section) ? getLinkedAccounts() : null,
+    section === "profile" ? getAvatar() : null,
   ]);
   if (!result?.user) redirect("/auth/login");
-  const section = settingsSection(query.section);
 
   return (
     <SettingsLayout
@@ -56,7 +72,13 @@ export default async function SettingsPage({ searchParams }: {
       navigation={<SettingsNavigation sections={sections} active={section} />}
     >
       <SettingsPageHeader eyebrow="Account" title="Settings" description="Manage your account and preferences." animate />
-      <SettingsClient key={section} initialUser={result.user} section={section} />
+      <SettingsClient
+        key={section}
+        initialUser={result.user}
+        initialAccounts={initialAccounts}
+        initialAvatar={initialAvatar}
+        section={section}
+      />
     </SettingsLayout>
   );
 }

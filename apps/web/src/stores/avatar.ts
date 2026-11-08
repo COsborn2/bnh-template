@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import type { AvatarOptions } from "@app/shared";
 import { api } from "@/lib/api";
-import { registerViewerScopedStore } from "@/stores/viewer-scope";
+import { getViewerId, registerViewerScopedStore } from "@/stores/viewer-scope";
 
-interface Avatar {
+export interface Avatar {
   options: AvatarOptions;
   svg: string;
 }
@@ -13,6 +13,10 @@ interface AvatarState {
   avatar: Avatar | null;
   /** Fetches the avatar (the API repairs and saves a missing one). Cached after the first load. */
   load: () => Promise<Avatar | null>;
+  /** Seeds the cache with the avatar a server page already fetched for
+   *  `ownerId`, so load() doesn't fetch it again. Ignored when the cache is
+   *  already filled, or when another account is signed in by now. */
+  prime: (avatar: Avatar, ownerId: string) => void;
   /** Saves new options; the server renders the SVG. */
   save: (options: AvatarOptions) => Promise<void>;
   /** Forget the cached avatar. Runs on its own whenever the signed-in account
@@ -43,6 +47,13 @@ export const useAvatarStore = create<AvatarState>((set, get) => ({
       });
     inflight = request;
     return request;
+  },
+
+  prime: (avatar, ownerId) => {
+    if (get().avatar) return;
+    const viewer = getViewerId();
+    if (viewer !== null && viewer !== ownerId) return;
+    set({ avatar });
   },
 
   save: async (options) => {

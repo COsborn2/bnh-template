@@ -6,7 +6,9 @@ import { useSession } from "@/lib/auth-client";
 import type { SessionUser } from "@/lib/session-user";
 import { SettingsCard, SettingsCardHeader } from "@cosborn2/ui/settings";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import type { SettingsSectionId } from "./settings-user";
+import { sectionNeedsAccounts, type SettingsSectionId } from "./settings-user";
+import type { LinkedAccount } from "./_components/linked-accounts";
+import type { Avatar } from "@/stores/avatar";
 import { PageLoading } from "@/components/ui/page-loading";
 import { ProfileSection } from "./_components/profile-section";
 import { EmailSection } from "./_components/email-section";
@@ -20,15 +22,25 @@ interface SettingsClientProps {
    *  Sections fall back to this only until `useSession` finishes its own
    *  load, then follow the live session (profile edits, email changes). */
   initialUser: SessionUser;
+  /** The viewer's sign-in methods, prefetched by the server page for the
+   *  sections that show them; null when not needed or the prefetch failed. */
+  initialAccounts: LinkedAccount[] | null;
+  /** The viewer's avatar, prefetched for the profile section; null otherwise. */
+  initialAvatar: Avatar | null;
   section: SettingsSectionId;
 }
 
-export function SettingsClient({ initialUser, section }: SettingsClientProps) {
+export function SettingsClient({
+  initialUser,
+  initialAccounts,
+  initialAvatar,
+  section,
+}: SettingsClientProps) {
   const router = useRouter();
   const { data: session, isPending } = useSession();
-  // One /list-accounts fetch shared by the password and connected-accounts
-  // sections — both need to know whether a credential account exists.
-  const accounts = useAccounts();
+  // Shared by the password, connected-accounts and delete sections — all
+  // need to know whether a credential account exists.
+  const accounts = useAccounts(initialAccounts, sectionNeedsAccounts(section));
 
   // If the session dies (or the user signs out) after the server render,
   // bounce to login — same behaviour as the old client-only page.
@@ -48,7 +60,7 @@ export function SettingsClient({ initialUser, section }: SettingsClientProps) {
 
   return (
     <div className="flex flex-col gap-4 animate-fade-up">
-      {section === "profile" && <><ProfileSection user={user} /><EmailSection user={user} /></>}
+      {section === "profile" && <><ProfileSection user={user} initialAvatar={initialAvatar} /><EmailSection user={user} /></>}
       {section === "password" && <PasswordSection hasPassword={accounts.hasPassword} onPasswordSet={accounts.refetch} />}
       {section === "connections" && <ConnectedAccountsSection accounts={accounts.list} loadError={accounts.error || undefined} onAccountsChange={accounts.refetch} />}
       {section === "appearance" && (
