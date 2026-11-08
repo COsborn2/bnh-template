@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { PendingLink, useNavigate } from "@/components/navigation-progress";
 import { authClient, useSession } from "@/lib/auth-client";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -71,6 +71,7 @@ async function loadSessions(
 
 export default function UserDetailPage() {
   const router = useRouter();
+  const navigate = useNavigate();
   const params = useParams();
   const userId = params.id as string;
   const { data: sessionData } = useSession();
@@ -274,7 +275,7 @@ export default function UserDetailPage() {
       }
       toast("User deleted", "success");
       setDeleteOpen(false);
-      router.push("/admin/users");
+      navigate("/admin/users");
     } catch (err: unknown) {
       toast(
         err instanceof Error ? err.message : "Failed to delete user",
@@ -395,12 +396,12 @@ export default function UserDetailPage() {
         <h1 className="font-display text-2xl text-text">
           User not found
         </h1>
-        <Link
+        <PendingLink
           href="/admin/users"
           className="mt-4 text-sm text-text-muted hover:text-text transition-colors"
         >
           Back to users
-        </Link>
+        </PendingLink>
       </div>
     );
   }
@@ -413,12 +414,12 @@ export default function UserDetailPage() {
     <div className="space-y-6">
       {/* Back link + heading */}
       <div>
-        <Link
+        <PendingLink
           href="/admin/users"
           className="text-sm link-underline"
         >
           &larr; Back to users
-        </Link>
+        </PendingLink>
         <h1 className="mt-2 font-display text-2xl text-text">
           {user.name ?? "Unnamed User"}
         </h1>

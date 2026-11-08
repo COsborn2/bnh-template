@@ -420,3 +420,66 @@ html {
     animation: loading-appear 0.2s ease-out 0.25s forwards;
   }
 }
+
+/* Navigation progress (components/navigation-progress.tsx): a bar along the
+   top edge while a PendingLink / useNavigate navigation renders on the
+   server. It fades in only after 150ms, so quick navigations show nothing. */
+.app-nav-progress {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: 6px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease,
+    visibility 0s linear 0.15s;
+}
+.app-nav-progress[data-active] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.2s ease 0.15s,
+    visibility 0s linear 0.15s;
+}
+.app-nav-progress::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: var(--bnh-primary);
+  border-bottom: var(--app-rule-width) solid var(--app-ink);
+}
+.app-nav-progress[data-active]::before {
+  animation: app-nav-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes app-nav-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+/* The link whose page is opening. */
+a[data-pending] {
+  opacity: 0.6;
+  transition: opacity 0.2s ease 0.15s;
+}
+:is(a, button)[data-pending] {
+  cursor: progress;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-progress::before {
+    width: 100%;
+  }
+  .app-nav-progress[data-active]::before {
+    animation: none;
+  }
+}

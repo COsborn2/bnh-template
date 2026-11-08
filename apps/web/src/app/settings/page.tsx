@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Link2, LockKeyhole, Monitor, Trash2, UserRound } from "lucide-react";
 import { SettingsLayout, SettingsNavigation, SettingsPageHeader, type RailSection, type SettingsNavigationItem } from "@cosborn2/ui/settings";
 import { HeaderShell } from "@cosborn2/ui/header-shell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { PendingLink } from "@/components/navigation-progress";
 import { serverApiOrNull } from "@/lib/server-api";
 import { SettingsClient } from "./settings-client";
 import { sectionNeedsAccounts, settingsSection } from "./settings-user";
@@ -61,7 +61,7 @@ export default async function SettingsPage({ searchParams }: {
           minWidth="min(520px, calc(100vw - 28px))"
           left={
             <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto text-[13px] text-text-muted [scrollbar-width:none]">
-              <Link href="/dashboard" className="whitespace-nowrap">Home</Link>
+              <PendingLink href="/dashboard" className="whitespace-nowrap">Home</PendingLink>
               <span aria-hidden="true" className="opacity-35">/</span>
               <span className="whitespace-nowrap font-medium text-text">Account settings</span>
             </nav>

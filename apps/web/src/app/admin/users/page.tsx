@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PendingLink, useNavigate } from "@/components/navigation-progress";
 import { authClient, useSession } from "@/lib/auth-client";
 import { api } from "@/lib/api";
 import { PAGE_SIZE } from "@/lib/pagination";
@@ -39,6 +39,7 @@ interface AdminUsersResponse {
 
 export default function AdminUsersPage() {
   const router = useRouter();
+  const navigate = useNavigate();
   const { data: session } = useSession();
 
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -195,12 +196,12 @@ export default function AdminUsersPage() {
       key: "name",
       header: "Name",
       render: (user: AdminUser) => (
-        <Link
+        <PendingLink
           href={`/admin/users/${user.id}`}
           className="link-underline"
         >
           {user.name ?? "Unnamed User"}
-        </Link>
+        </PendingLink>
       ),
     },
     {
@@ -264,7 +265,7 @@ export default function AdminUsersPage() {
         const items = [
           {
             label: "View details",
-            onClick: () => router.push(`/admin/users/${user.id}`),
+            onClick: () => navigate(`/admin/users/${user.id}`),
           },
           ...(user.banned
             ? [

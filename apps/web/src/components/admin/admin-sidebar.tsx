@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { PendingLink } from "@/components/navigation-progress";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Users, Settings, ArrowLeft, type LucideIcon } from "lucide-react";
@@ -32,7 +32,7 @@ export function AdminSidebar({ items }: AdminSidebarProps) {
           const isActive = pathname.startsWith(item.href);
           const Icon = navIcons[item.label];
           return (
-            <Link
+            <PendingLink
               key={item.href}
               href={item.href}
               className={cn(
@@ -46,17 +46,17 @@ export function AdminSidebar({ items }: AdminSidebarProps) {
                 <Icon aria-hidden="true" className="h-4 w-4" />
               )}
               {item.label}
-            </Link>
+            </PendingLink>
           );
         })}
       </nav>
-      <Link
+      <PendingLink
         href="/dashboard"
         className="mt-2 flex items-center gap-2 self-start md:mt-auto md:self-stretch rounded-[var(--radius-md)] border border-transparent px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:border-border hover:bg-bg-hover hover:text-text"
       >
         <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
         Back to dashboard
-      </Link>
+      </PendingLink>
     </aside>
   );
 }
