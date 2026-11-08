@@ -72,7 +72,8 @@ by environment variables.
   layer). Restyle shared components there by class name instead of wrapping or forking
   them; prefer the shared `Surface` adapter over hand-rolled card markup, and the local
   `Tag` and `SectionHeading` (`app-*` classes in `globals.css`) over one-off badges and
-  section titles. Use the `Input` and `Select` adapters for fields; a field they can't
+  section titles. Use the `Input` and `Select` adapters for fields and the `Switch`
+  adapter for on/off settings (never a hand-rolled toggle); a field they can't
   express (a textarea, an input wrapped with an icon or chips) takes `app-field` on
   the element that draws its border so it focuses like `Input`, with no inline
   box-shadow, transform or transition. `font-display` headings are bold and uppercase

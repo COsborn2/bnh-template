@@ -172,15 +172,46 @@
     text-underline-offset: 3px;
   }
 
-  /* Switches: ink track and square-ish thumb. */
+  /* Switches: a retro slide switch. Ink frame and hard shadow that lift on
+     hover and press flat like buttons; a ridged white thumb (white in both
+     modes, like the bright fills) that snaps across; an I (on) or O (off)
+     mark on the bare track so the state reads without colour. 50×26 with a
+     2px frame and an 18px thumb inset 2px gives 24px of travel. */
   .bnh-switch-track {
-    border: var(--bnh-border-width) solid var(--app-ink);
-    --bnh-switch-thumb-color: var(--bnh-bg-2);
-    --bnh-switch-thumb-shadow: 0 0 0 var(--bnh-border-width) var(--app-ink);
-    --bnh-switch-inset: 1px;
+    --bnh-switch-width: 50px;
+    --bnh-switch-height: 26px;
+    --bnh-switch-thumb: 18px;
+    --bnh-switch-inset: 2px;
+    --bnh-switch-border-width: var(--bnh-border-width);
+    --bnh-switch-border-color: var(--app-ink);
+    --bnh-switch-shadow: var(--app-shadow-sm);
+    --bnh-switch-active: var(--app-fill-green);
+    --bnh-switch-thumb-color: #ffffff;
+    --bnh-switch-thumb-shadow: none;
+    --bnh-switch-grip: var(--app-ink);
+    --bnh-switch-mark-on: var(--app-on-fill);
+    --bnh-switch-mark-off: var(--bnh-text-dim);
+    transition:
+      background-color 160ms ease,
+      box-shadow 80ms ease,
+      transform 80ms ease;
   }
-  .bnh-switch-input:checked + .bnh-switch-track {
-    background: var(--bnh-switch-active, var(--app-fill-green));
+  .bnh-switch-track::after {
+    transition: transform 180ms cubic-bezier(0.3, 1.3, 0.6, 1);
+  }
+  .bnh-switch:hover .bnh-switch-input:not(:disabled) + .bnh-switch-track {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--app-shadow-md);
+  }
+  .bnh-switch:active .bnh-switch-input:not(:disabled) + .bnh-switch-track {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bnh-switch-track,
+    .bnh-switch-track::after {
+      transition: none;
+    }
   }
 
   .bnh-glass-popover {
