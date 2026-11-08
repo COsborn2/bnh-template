@@ -235,7 +235,7 @@ These are not needed for local dev, but they matter in Railway:
 | `bun run test:integration` | Run the whole test suite against a disposable dockerized Postgres + Redis on off-ports (54329/63799): migrates first, needs no `.env`, tears down on exit |
 | `bun run db:generate` | Generate a Drizzle migration |
 | `bun run db:migrate` | Apply pending migrations |
-| `bun run db:seed` | Seed local example data using `.env`: creates `alice@email.com` (admin) and `bob@email.com` with the password `MyAppSeed!2026#Local7Hq` through better-auth's real sign-up (so it needs outbound network for the Have I Been Pwned check and the DNS MX lookup). Re-running resets both users |
+| `bun run db:seed` | Seed local example data using `.env`: creates `alice@email.com` (admin) and `bob@email.com` with the password `MyAppSeed!2026#Local7Hq` through better-auth's real sign-up (so it needs outbound network for the Have I Been Pwned check and the DNS MX lookup). Re-running resets both users. It refuses to run unless `DATABASE_URL` is on this machine (and `NODE_ENV` isn't `production`, and it isn't running on Railway); to seed another database on purpose, set `ALLOW_SEED=true` and your own `SEED_USER_PASSWORD` |
 
 `bun run db:migrate` runs the same migration runner (`apps/migrate/src/migrate.ts`) that the production `migrate` image runs, so local migrations exercise the exact production code path and print friendly guidance if Postgres is unreachable. `bun run db:generate` still uses drizzle-kit.
 

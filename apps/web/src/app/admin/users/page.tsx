@@ -288,7 +288,12 @@ export default function AdminUsersPage() {
               ]),
         ];
 
-        return <ActionsMenu items={items} />;
+        return (
+          <ActionsMenu
+            ariaLabel={`Actions for ${user.name || user.email}`}
+            items={items}
+          />
+        );
       },
     },
   ];

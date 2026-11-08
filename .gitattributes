@@ -1,1 +1,4 @@
 * text=auto eol=lf
+# drizzle-kit regenerates a full schema snapshot with every migration; mark
+# them generated so GitHub collapses them in pull request diffs.
+apps/migrate/src/migrations/meta/*_snapshot.json linguist-generated=true

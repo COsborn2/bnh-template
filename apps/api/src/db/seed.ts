@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@app/db";
 import { auth } from "../lib/auth.js";
 import { deleteAccountData } from "../services/account.js";
+import { decideSeed } from "./seed-guard.js";
 
 // Users are created through better-auth's own sign-up (auth.api.signUpEmail)
 // rather than raw inserts, so the account row is exactly what the adapter
@@ -28,8 +29,21 @@ import { deleteAccountData } from "../services/account.js";
 // be tried locally. Re-seeding is a reset: an existing user with the same
 // email is deleted first (the FK cascade clears sessions and accounts).
 
-// One long, unique password: better-auth rejects breached ones.
-const SEED_PASSWORD = "MyAppSeed!2026#Local7Hq";
+// One long, unique password: better-auth rejects breached ones. Published in
+// the README, so seed-guard.ts only uses it for a local database; anywhere
+// else needs ALLOW_SEED=true and a SEED_USER_PASSWORD of its own.
+const DEFAULT_SEED_PASSWORD = "MyAppSeed!2026#Local7Hq";
+
+const decision = decideSeed(process.env, DEFAULT_SEED_PASSWORD);
+if (!decision.ok) {
+  console.error(decision.reason);
+  process.exit(1);
+}
+const SEED_PASSWORD = decision.password;
+// Echoed at the end; a password you chose yourself stays out of the output.
+const SHOWN_PASSWORD = decision.customPassword
+  ? "(your SEED_USER_PASSWORD)"
+  : SEED_PASSWORD;
 
 const SEED_USERS = [
   { name: "Alice", email: "alice@email.com", username: "alice" },
@@ -100,7 +114,7 @@ async function seed() {
   console.log("\nSeed complete! You can now log in with:");
   for (const [index, seedUser] of SEED_USERS.entries()) {
     const suffix = index === 0 ? " (admin)" : "";
-    console.log(`  ${seedUser.email} / ${SEED_PASSWORD}${suffix}`);
+    console.log(`  ${seedUser.email} / ${SHOWN_PASSWORD}${suffix}`);
   }
 
   process.exit(0);

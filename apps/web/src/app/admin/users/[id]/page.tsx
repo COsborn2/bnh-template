@@ -433,13 +433,13 @@ export default function UserDetailPage() {
         <div className="grid gap-2 text-sm">
           <div className="flex gap-2">
             <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Name</span>
-            <span className="text-text">
+            <span className="min-w-0 text-text wrap-anywhere">
               {user.name ?? <span className="text-text-muted">&mdash;</span>}
             </span>
           </div>
           <div className="flex gap-2">
             <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Email</span>
-            <span className="text-text">
+            <span className="min-w-0 text-text wrap-anywhere">
               {user.email}
               {user.emailVerified ? (
                 <Tag tone="green" className="ml-2">
@@ -454,7 +454,7 @@ export default function UserDetailPage() {
           </div>
           <div className="flex gap-2">
             <span className="w-28 shrink-0 font-mono text-xs font-bold uppercase leading-5 tracking-wide text-text-muted">Username</span>
-            <span className="text-text">
+            <span className="min-w-0 text-text wrap-anywhere">
               {user.username ? (
                 `@${user.username}`
               ) : (

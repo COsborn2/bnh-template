@@ -2,7 +2,9 @@
 // unit tests import modules that transitively pull it in. `??=` means a real
 // DATABASE_URL (local dev, CI integration tests) always wins — this only
 // fills the gap for tests that never touch the database.
-process.env.DATABASE_URL ??= "postgres://test@localhost:5432/app_test";
+import { PLACEHOLDER_DATABASE_URL } from "./test-support/placeholder-database-url.js";
+
+process.env.DATABASE_URL ??= PLACEHOLDER_DATABASE_URL;
 
 // DNS MX lookups and Have I Been Pwned are faked for every test file, and any
 // other outbound request fails: the suites need Postgres and Redis, never the
