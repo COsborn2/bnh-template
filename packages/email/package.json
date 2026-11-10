@@ -23,11 +23,11 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@react-email/ui": "6.11.6",
+    "@react-email/ui": "6.11.7",
     "@types/bun": "^1.4.3",
     "@types/react": "^19.3.0",
     "react": "^19.3.1",
-    "react-email": "6.11.6",
+    "react-email": "6.11.7",
     "typescript": "^6.0.3"
   }
 }
