@@ -161,7 +161,7 @@ Local dev URLs:
 
 The included `docker-compose.yml` starts:
 
-- PostgreSQL 17 on `localhost:5433`
+- PostgreSQL 18 on `localhost:5433`
 - Redis 7 on `localhost:6379`
 - Jaeger (optional trace viewer) with its UI on `localhost:16686` — start it only when you want local traces
 
@@ -426,6 +426,19 @@ bun run db:migrate
 
 If you do need to preserve local data, update `DATABASE_URL` in `.env` to use the existing Postgres role instead of `postgres`.
 
+<!-- template-only -->
+### Upgrading local Postgres from 17
+
+`docker-compose.yml` runs PostgreSQL 18 with a new volume, `pgdata18`. A 17 data directory can't be opened by 18, so the first `docker compose up` after this change starts an empty database. Migrate it, and seed it again if you use the seed:
+
+```bash
+docker compose up -d postgres redis
+bun run db:migrate
+```
+
+Your old local data is still in the previous `pgdata` volume. Once you don't need it, find its exact name with `docker volume ls` (Compose prefixes it with the project name) and delete it with `docker volume rm`.
+
+<!-- /template-only -->
 If you have another Postgres running locally, prefer port `5433` for this repo. The included `docker-compose.yml` maps the container to `localhost:5433` to avoid conflicts with host-level Postgres installs.
 
 ## Shared UI package

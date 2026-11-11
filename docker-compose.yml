@@ -1,14 +1,19 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     ports:
       - "5433:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: myapp
+    # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker and
+    # refuse to start with a mount at the old /var/lib/postgresql/data
+    # (docker-library/postgres#1259), so the volume is mounted one level up.
+    # It's also a new volume: an existing 17 volume can't be opened by 18, and
+    # leaving it alone lets the new database start instead of refusing to.
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -41,4 +46,4 @@ services:
       - "4317:4317"
 
 volumes:
-  pgdata:
+  pgdata18:
