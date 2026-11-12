@@ -27,7 +27,7 @@
         "drizzle-orm": "^0.45.4",
         "hono": "^4.13.17",
         "ioredis": "^6.0.0",
-        "rate-limiter-flexible": "^11.3.0",
+        "rate-limiter-flexible": "^11.4.0",
         "winston": "^3.19.0",
         "zod": "^4.6.7",
       },
@@ -1357,7 +1357,7 @@
 
     "queue-microtask": ["queue-microtask@1.2.3", "", {}, "sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A=="],
 
-    "rate-limiter-flexible": ["rate-limiter-flexible@11.3.0", "", {}, "sha512-j9ajqvqkF+UqPanM0bKTu4uLg71Y3lOs5cDGMM4HL1lshE+Xur9NL3PGjrjOgEA52G0/VjaETA2aBBiDcvWJRg=="],
+    "rate-limiter-flexible": ["rate-limiter-flexible@11.4.0", "", {}, "sha512-+RyuiXEG3odp5c9aZP83H8cld0L7swvz1FxlVzy/7N4zYo4i0GDy5tBhZlPFFOdXXwEilyBREKbVIKDq5bfjlw=="],
 
     "react": ["react@19.3.1", "", {}, "sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw=="],
 
