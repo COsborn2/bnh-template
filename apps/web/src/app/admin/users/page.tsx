@@ -312,6 +312,7 @@ export default function AdminUsersPage() {
           combines them, so a page index from another result set is stale. */}
       <div className="flex flex-wrap items-center gap-3">
         <Input
+          aria-label="Filter users by name or email"
           placeholder="Filter users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

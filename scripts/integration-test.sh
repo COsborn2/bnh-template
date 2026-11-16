@@ -44,14 +44,14 @@ pull_test_image() {
   docker pull "$mirror" && docker tag "$mirror" "$image"
 }
 
-pull_test_image postgres:17-alpine
+pull_test_image postgres:18-alpine
 pull_test_image redis:7-alpine
 
 docker run --pull=never -d --rm --name "$PG_CONTAINER" \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=myapp_test \
-  -p "$PG_PORT":5432 postgres:17-alpine >/dev/null
+  -p "$PG_PORT":5432 postgres:18-alpine >/dev/null
 docker run --pull=never -d --rm --name "$REDIS_CONTAINER" \
   -p "$REDIS_PORT":6379 redis:7-alpine >/dev/null
 
