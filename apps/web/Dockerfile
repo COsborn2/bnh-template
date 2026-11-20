@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . .
 RUN bunx turbo prune @app/web --docker
 
-FROM node:26-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS build
+FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS build
 WORKDIR /app
 COPY --from=pruner /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=pruner /app/out/json/ .
@@ -22,7 +22,7 @@ ARG NEXT_PUBLIC_APP_URL
 
 RUN bun run --filter=@app/web build
 
-FROM node:26-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec AS runtime
+FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS runtime
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
